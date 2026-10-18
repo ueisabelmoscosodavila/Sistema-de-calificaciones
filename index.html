@@ -1,0 +1,1326 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>U.E. "Isabel Moscoso Dávila" • Sistema de Calificaciones</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <style>
+    .nota{width:3rem;text-align:center;border:1px solid #cbd5e1;border-radius:.35rem;padding:2px 0;font-family:ui-monospace,monospace;font-weight:700;font-size:12px;background:#fff}
+    .nota.ref{border-color:#f59e0b;background:#fffbeb;color:#92400e;margin-top:2px}
+    .nota.invalida{border-color:#dc2626;background:#fee2e2}
+    .nota:disabled,select:disabled,input:disabled{background:#f1f5f9;color:#475569;cursor:not-allowed}
+    .lblref{display:flex;align-items:center;justify-content:center;gap:2px;font-size:9px;color:#64748b;cursor:pointer;margin-top:2px}
+    .planilla th{padding:6px 4px;font-size:10px;color:#334155;text-align:center;border-bottom:1px solid #e2e8f0}
+    .planilla td{padding:4px;border-bottom:1px solid #f1f5f9;text-align:center}
+    .planilla td:nth-child(2){text-align:left}
+    .inp{width:100%;border:1px solid #cbd5e1;border-radius:.6rem;padding:.45rem .6rem;background:#f8fafc;font-size:12px}
+    .lbl{display:block;font-weight:700;color:#334155;font-size:11px;margin-bottom:2px}
+    .btn{padding:.5rem .9rem;border-radius:.7rem;font-weight:700;font-size:12px;transition:.15s}
+    .btn-primary{background:#0c4a6e;color:#fff}.btn-primary:hover{background:#075985}
+    .btn-sec{background:#e0f2fe;color:#0c4a6e;border:1px solid #bae6fd}.btn-sec:hover{background:#bae6fd}
+    .btn-warn{background:#d97706;color:#fff}.btn-danger{background:#dc2626;color:#fff}.btn-ok{background:#047857;color:#fff}
+    .card{background:#fff;border:1px solid #e2e8f0;border-radius:1.25rem;padding:1.1rem;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+    .tabla{width:100%;font-size:12px}.tabla th{background:#f1f5f9;text-align:left;padding:6px 8px;font-size:11px}.tabla td{padding:6px 8px;border-top:1px solid #f1f5f9}
+    /* ===== Informes impresos ===== */
+    .rep{font-family:Arial,Helvetica,sans-serif;color:#111;font-size:11px;line-height:1.35}
+    .rep .enc{text-align:center;border-bottom:2px solid #38bdf8;padding-bottom:6px}
+    .rep .enc .inst{font-size:15px;font-weight:800;text-transform:uppercase}
+    .rep .enc .tit{font-size:12.5px;font-weight:800;text-transform:uppercase;margin-top:6px;color:#0c4a6e}
+    .rep .ficha{display:grid;grid-template-columns:1fr 1fr;gap:2px 18px;border:1px solid #7dd3fc;background:#f0f9ff;padding:6px 8px;margin-top:8px;border-radius:4px}
+    .rep table{width:100%;border-collapse:collapse;margin-top:8px}
+    .rep th,.rep td{border:1px solid #64748b;padding:3px 5px;font-size:10px;vertical-align:top}
+    .rep th{background:#e0f2fe;text-align:center}
+    .rep .c{text-align:center}.rep .b{font-weight:700}.rep .alerta{background:#fee2e2}
+    .rep .firmas{display:flex;justify-content:space-around;gap:28px;margin-top:60px}
+    .rep .firma{flex:1;max-width:250px;text-align:center;border-top:1px solid #000;padding-top:4px}
+    .rep .firma small{display:block;color:#475569}
+    .rep .norma{margin-top:12px;font-size:9.5px;font-style:italic;color:#334155;border-top:1px dashed #94a3b8;padding-top:4px}
+    .rep .pagina{page-break-after:always;break-after:page;margin-bottom:28px}
+    .rep .pagina:last-child{page-break-after:auto;break-after:auto}
+    @media print{
+      body{background:#fff!important;padding:0!important}
+      body *{visibility:hidden}
+      #print-area,#print-area *{visibility:visible}
+      #print-area{position:absolute;left:0;top:0;width:100%;border:none!important;box-shadow:none!important;padding:0!important}
+      .no-print{display:none!important}
+    }
+  </style>
+  <style id="page-size">@page{size:A4 portrait;margin:10mm}</style>
+</head>
+<body class="bg-slate-100 text-slate-800 antialiased min-h-screen p-2 sm:p-4">
+<div class="max-w-7xl mx-auto space-y-4">
+
+  <!-- ENCABEZADO -->
+  <header class="card no-print flex flex-wrap justify-between items-center gap-3">
+    <div class="flex items-center gap-3">
+      <div class="w-12 h-12 rounded-2xl bg-sky-900 text-amber-300 flex items-center justify-center font-black text-lg">IM</div>
+      <div>
+        <h1 class="font-black text-base sm:text-lg text-slate-900 leading-tight" id="h-inst">Sistema Institucional de Calificaciones</h1>
+        <p class="text-xs text-slate-500" id="h-sub">AMIE 01H00491 · Cuenca - Ecuador</p>
+      </div>
+    </div>
+    <div id="badge" class="hidden items-center gap-2 text-xs">
+      <div class="text-right">
+        <span id="b-nombre" class="font-black text-slate-900 block text-sm"></span>
+        <span id="b-rol" class="text-[11px] text-sky-800 font-bold uppercase"></span>
+      </div>
+      <button onclick="abrirModal('m-clave')" class="btn btn-sec">🔑 Clave</button>
+      <button onclick="salir()" class="btn bg-red-50 text-red-700 border border-red-200">Salir</button>
+    </div>
+  </header>
+
+  <!-- ============ LOGIN ============ -->
+  <section id="v-login" class="max-w-md mx-auto card space-y-4 my-8 no-print">
+    <div class="text-center">
+      <div class="text-3xl">🔐</div>
+      <h2 class="text-lg font-black text-slate-900">Portal Institucional</h2>
+      <p class="text-xs text-slate-500">Ingrese con su usuario (nombre.apellido) y su contraseña</p>
+    </div>
+    <div><label class="lbl">Usuario</label><input id="lg-u" class="inp" autocomplete="username" placeholder="nombre.apellido"></div>
+    <div><label class="lbl">Contraseña</label><input id="lg-p" type="password" class="inp" autocomplete="current-password" placeholder="••••••••"></div>
+    <div id="lg-err" class="hidden p-2 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-semibold"></div>
+    <button onclick="login()" class="btn btn-primary w-full py-3 uppercase">Ingresar</button>
+    <div class="flex justify-between">
+      <button onclick="abrirModal('m-clave')" class="text-[11px] text-sky-800 hover:underline font-bold">Cambiar mi contraseña</button>
+      <button onclick="abrirModal('m-recup')" class="text-[11px] text-sky-800 hover:underline font-bold">¿Olvidó su contraseña?</button>
+    </div>
+  </section>
+
+  <!-- ============ APLICACIÓN ============ -->
+  <section id="v-app" class="hidden space-y-4 no-print">
+    <nav id="nav" class="flex gap-1 bg-white p-1.5 rounded-2xl border overflow-x-auto text-xs"></nav>
+
+    <!-- ESTUDIANTES -->
+    <div id="tab-estudiantes" class="tab hidden card space-y-3">
+      <div class="flex flex-wrap justify-between items-center gap-2">
+        <div><h3 class="font-black text-sm">🎒 Nómina de estudiantes</h3><p class="text-[11px] text-slate-500">Filtre, imprima o modifique datos.</p></div>
+        <div class="flex gap-2">
+          <button onclick="imprimirNomina()" class="btn btn-primary">🖨️ Imprimir lista filtrada</button>
+          <button onclick="$('imp-panel').classList.toggle('hidden')" class="btn btn-sec solo-rectora">📥 Importar desde Excel</button>
+          <button onclick="abrirEstudiante(null)" class="btn btn-ok solo-rectora">➕ Nuevo estudiante</button>
+        </div>
+      </div>
+      <div id="imp-panel" class="hidden bg-sky-50 border border-sky-200 rounded-2xl p-3 space-y-2 text-xs">
+        <div class="flex flex-wrap justify-between items-center gap-2">
+          <div><b>📥 Importar estudiantes desde Excel (.xlsx, .xls o .csv)</b>
+            <p class="text-[11px] text-slate-600">Columnas que se reconocen por su título: Cédula · Apellidos y nombres (o Apellidos + Nombres) · Jornada · Año de básica / Curso · Paralelo · Repetidor · Origen · NEE · NAP · Representante · Teléfono · Observaciones.
+            Si la cédula ya existe se <b>actualizan</b> solo las celdas con dato; si no existe, se <b>crea</b> el estudiante.</p></div>
+          <button onclick="descargarPlantilla()" class="btn btn-sec">⬇️ Descargar plantilla</button>
+        </div>
+        <input type="file" id="imp-file" accept=".xlsx,.xls,.csv" onchange="leerExcel(this.files[0])" class="text-xs">
+        <div id="imp-prev"></div>
+      </div>
+      <div class="grid grid-cols-2 sm:grid-cols-6 gap-2 bg-slate-50 p-3 rounded-2xl border">
+        <div><label class="lbl">Jornada</label><select id="est-jor" class="inp" onchange="cargarEstudiantes()"></select></div>
+        <div><label class="lbl">Año / curso</label><select id="est-gra" class="inp" onchange="cargarEstudiantes()"></select></div>
+        <div><label class="lbl">Paralelo</label><select id="est-par" class="inp" onchange="cargarEstudiantes()"></select></div>
+        <div class="sm:col-span-2"><label class="lbl">Buscar (nombre o cédula)</label><input id="est-txt" class="inp" oninput="renderEstudiantes()"></div>
+        <div class="flex items-end gap-1 text-[11px]"><label><input type="checkbox" id="est-ret" onchange="cargarEstudiantes()"> Mostrar inhabilitados</label></div>
+      </div>
+      <p id="est-count" class="text-xs font-bold text-slate-600"></p>
+      <div class="overflow-x-auto border rounded-2xl"><table class="tabla"><thead><tr>
+        <th>ID</th><th>Cédula</th><th>Apellidos y nombres</th><th>Jornada</th><th>Curso</th><th>Repetidor</th><th>Origen</th><th>NEE</th><th>NAP</th><th>Estado</th><th class="solo-rectora">Acción</th>
+      </tr></thead><tbody id="est-body"></tbody></table></div>
+    </div>
+
+    <!-- DOCENTES (RECTORA) -->
+    <div id="tab-docentes" class="tab hidden card space-y-3">
+      <div class="flex flex-wrap justify-between items-center gap-2">
+        <div><h3 class="font-black text-sm">👨‍🏫 Planta docente</h3><p class="text-[11px] text-slate-500" id="doc-count"></p></div>
+        <button onclick="abrirDocente(null)" class="btn btn-ok">➕ Nuevo docente</button>
+      </div>
+      <div class="overflow-x-auto border rounded-2xl"><table class="tabla"><thead><tr>
+        <th>ID</th><th>Docente</th><th>Usuario</th><th>Jornada</th><th>Carga</th><th>Años / paralelos</th><th>Asignaturas</th><th>Tutoría</th><th>Optativa/PPE</th><th>Estado</th><th>Acciones</th>
+      </tr></thead><tbody id="doc-body"></tbody></table></div>
+    </div>
+
+    <!-- PERIODOS (RECTORA) -->
+    <div id="tab-periodos" class="tab hidden space-y-4">
+      <div class="card space-y-3">
+        <div class="flex flex-wrap justify-between items-center gap-2">
+          <div><h3 class="font-black text-sm">📅 Año lectivo, trimestres y cortes de insumos (alertas tempranas)</h3>
+            <p class="text-[11px] text-slate-500">Los docentes solo pueden registrar dentro de las fechas de cada periodo. Fuera de ellas, solo consulta.</p></div>
+          <div class="flex flex-wrap gap-2">
+            <button id="btn-bloqueo" onclick="toggleBloqueo()" class="btn btn-danger"></button>
+            <button onclick="agregarPeriodo()" class="btn btn-sec">➕ Agregar periodo / corte</button>
+            <button onclick="guardarPeriodos()" class="btn btn-primary">💾 Grabar fechas en Drive</button>
+          </div>
+        </div>
+        <div class="overflow-x-auto border rounded-2xl"><table class="tabla"><thead><tr>
+          <th>Nombre</th><th>Tipo</th><th>Trimestre</th><th>Jornada</th><th>Inicio</th><th>Cierre</th><th>Estado hoy</th><th>Observación</th><th></th>
+        </tr></thead><tbody id="per-body"></tbody></table></div>
+      </div>
+      <div class="card space-y-3 border-amber-200">
+        <h3 class="font-black text-sm text-amber-900">🔓 Desbloqueo excepcional (observación obligatoria)</h3>
+        <div class="grid grid-cols-1 sm:grid-cols-4 gap-2">
+          <div><label class="lbl">Docente</label><select id="ds-doc" class="inp"></select></div>
+          <div><label class="lbl">Periodo / corte</label><select id="ds-per" class="inp"></select></div>
+          <div><label class="lbl">Año / curso</label><select id="ds-gra" class="inp"></select></div>
+          <div><label class="lbl">Paralelo</label><select id="ds-par" class="inp"></select></div>
+          <div><label class="lbl">Asignatura</label><select id="ds-asig" class="inp"></select></div>
+          <div><label class="lbl">Vigente hasta</label><input id="ds-hasta" type="date" class="inp"></div>
+          <div class="sm:col-span-2"><label class="lbl text-red-800">Observación / justificación (obligatoria)</label><input id="ds-obs" class="inp" placeholder="N° de solicitud, certificado médico, etc."></div>
+        </div>
+        <button onclick="autorizarDesbloqueo()" class="btn btn-warn">🔓 Conceder desbloqueo y registrar en auditoría</button>
+        <div class="overflow-x-auto border rounded-2xl"><table class="tabla"><thead><tr>
+          <th>Fecha</th><th>Docente</th><th>Periodo</th><th>Curso</th><th>Asignatura</th><th>Vigente hasta</th><th>Observación</th><th>Autorizó</th>
+        </tr></thead><tbody id="ds-body"></tbody></table></div>
+      </div>
+    </div>
+
+    <!-- INFORMES (DIRECTIVOS) -->
+    <div id="tab-informes" class="tab hidden card space-y-3">
+      <div><h3 class="font-black text-sm">📊 Informes oficiales (solo lectura)</h3>
+        <p class="text-[11px] text-slate-500">Filtre por jornada, año de básica, paralelo y/o docente. Todos los informes indican el acuerdo ministerial que los regula.</p></div>
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-sky-50 p-3 rounded-2xl border border-sky-100">
+        <div><label class="lbl">Jornada</label><select id="inf-jor" class="inp" onchange="infCurso()"></select></div>
+        <div><label class="lbl">Año de básica / curso</label><select id="inf-gra" class="inp" onchange="infCurso()"></select></div>
+        <div><label class="lbl">Paralelo</label><select id="inf-par" class="inp" onchange="infCurso()"></select></div>
+        <div><label class="lbl">Docente (opcional)</label><select id="inf-doc" class="inp" onchange="infAsignaturas()"></select></div>
+        <div><label class="lbl">Asignatura</label><select id="inf-asig" class="inp"></select></div>
+        <div><label class="lbl">Trimestre</label><select id="inf-trim" class="inp" onchange="cargarCortes('inf-corte',$('inf-jor').value,this.value)"></select></div>
+        <div><label class="lbl">Corte de alerta</label><select id="inf-corte" class="inp"></select></div>
+        <div><label class="lbl">Estudiante (boletas)</label><select id="inf-est" class="inp"></select></div>
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 text-xs">
+        <button onclick="genInforme('alertas')" class="btn btn-warn">⚠️ Alertas de bajo desempeño (corte)</button>
+        <button onclick="genInforme('mensual')" class="btn btn-primary">📄 Informe mensual de insumos (corte)</button>
+        <button onclick="genInforme('trimestral')" class="btn btn-primary">📘 Informe trimestral por asignatura</button>
+        <button onclick="genInforme('boleta')" class="btn btn-ok">🧾 Boletas trimestrales</button>
+        <button onclick="genInforme('anual')" class="btn btn-ok">📊 Reporte anual de calificaciones</button>
+        <button onclick="genInforme('ficha_inicial')" class="btn btn-ok">🌱 Ficha cualitativa (Inicial / Preparatoria)</button>
+        <button onclick="imprimirNomina('inf')" class="btn btn-sec">🎒 Nómina del curso</button>
+      </div>
+    </div>
+
+    <!-- SEGUIMIENTO Y CUMPLIMIENTO -->
+    <div id="tab-seguimiento" class="tab hidden grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div class="card space-y-3">
+        <h3 class="font-black text-sm">⚠️ Seguimiento: bajo rendimiento, repetidores y vulnerabilidad</h3>
+        <div class="grid grid-cols-2 gap-2">
+          <div><label class="lbl">Jornada</label><select id="seg-jor" class="inp"></select></div>
+          <div><label class="lbl">Caso</label><select id="seg-caso" class="inp">
+            <option value="TODOS">Todos los casos</option><option value="BAJO">Bajo rendimiento (alerta)</option>
+            <option value="REPETIDOR">Repetidores</option><option value="NEE">Con NEE</option><option value="NAP">Estudiantes NAP</option></select></div>
+          <div><label class="lbl">Desde</label><input id="seg-desde" type="date" class="inp"></div>
+          <div><label class="lbl">Hasta</label><input id="seg-hasta" type="date" class="inp"></div>
+          <div><label class="lbl">Año / curso (opcional)</label><select id="seg-gra" class="inp"></select></div>
+          <div><label class="lbl">Paralelo (opcional)</label><select id="seg-par" class="inp"></select></div>
+        </div>
+        <button onclick="genSeguimiento()" class="btn btn-warn w-full">Generar informe de seguimiento</button>
+      </div>
+      <div class="card space-y-3">
+        <h3 class="font-black text-sm">📋 Registro de calificaciones por parte de los docentes</h3>
+        <div class="grid grid-cols-2 gap-2">
+          <div><label class="lbl">Jornada</label><select id="cum-jor" class="inp" onchange="cumCortes()"></select></div>
+          <div><label class="lbl">Trimestre</label><select id="cum-trim" class="inp" onchange="cumCortes()"></select></div>
+          <div class="col-span-2"><label class="lbl">Corte</label><select id="cum-corte" class="inp"></select></div>
+        </div>
+        <button onclick="genCumplimiento()" class="btn btn-primary w-full">Generar informe de cumplimiento</button>
+      </div>
+    </div>
+
+    <!-- INSTITUCIÓN (RECTORA) -->
+    <div id="tab-institucion" class="tab hidden grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div class="card space-y-3">
+        <div class="flex justify-between items-center"><h3 class="font-black text-sm">🏫 Datos institucionales y parámetros</h3>
+          <button onclick="guardarConfig()" class="btn btn-primary">💾 Guardar</button></div>
+        <div id="cfg-body" class="space-y-2 text-xs"></div>
+      </div>
+      <div class="space-y-4">
+        <div class="card space-y-2">
+          <h3 class="font-black text-sm">👥 Autoridades (firmas de los informes)</h3>
+          <div id="dir-body" class="space-y-2 text-xs"></div>
+        </div>
+        <div class="card space-y-2">
+          <h3 class="font-black text-sm">📐 Escala de equivalencias vigente</h3>
+          <p class="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-xl p-2">Se edita en la hoja <b>"Escala"</b> de la base de datos. Verifique que coincida con el Acuerdo Ministerial configurado.</p>
+          <div id="esc-body"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PLANILLA DOCENTE -->
+    <div id="tab-planilla" class="tab hidden space-y-4">
+      <div class="card space-y-3">
+        <div class="flex flex-wrap justify-between items-center gap-2">
+          <div><h3 class="font-black text-sm">📝 Registro de calificaciones</h3>
+            <p class="text-[11px] text-slate-500">Solo se muestran su jornada, años de básica, paralelos y asignaturas asignados.</p></div>
+          <div class="flex gap-2 items-center">
+            <span id="pl-tutor" class="hidden px-2.5 py-1 rounded-full bg-purple-100 text-purple-900 font-black text-[11px]">⭐ Tutor/a de este curso</span>
+            <span id="pl-bloqueo" class="px-2.5 py-1 rounded-full font-black text-[11px]"></span>
+          </div>
+        </div>
+        <div class="grid grid-cols-2 sm:grid-cols-6 gap-2">
+          <div><label class="lbl">1. Jornada</label><select id="pl-jor" class="inp" onchange="plCambio(true)"></select></div>
+          <div><label class="lbl">2. Año / curso</label><select id="pl-gra" class="inp" onchange="plCambio(true)"></select></div>
+          <div><label class="lbl">3. Paralelo</label><select id="pl-par" class="inp" onchange="plCambio(true)"></select></div>
+          <div id="pl-asig-box"><label class="lbl">4. Asignatura</label><select id="pl-asig" class="inp" onchange="plCargar()"></select></div>
+          <div><label class="lbl">5. Trimestre</label><select id="pl-trim" class="inp" onchange="plCambio(true)"></select></div>
+          <div><label class="lbl">6. Corte de alerta</label><select id="pl-corte" class="inp" onchange="plCargar()"></select></div>
+        </div>
+        <div id="pl-subs" class="flex flex-wrap gap-1"></div>
+      </div>
+      <div class="card space-y-3">
+        <div id="pl-banner" class="hidden"></div>
+        <div id="pl-area"></div>
+        <div id="pl-acciones" class="flex flex-wrap justify-end gap-2"></div>
+      </div>
+      <div class="card space-y-2">
+        <h4 class="font-black text-sm">🖨️ Informes del docente (firmas: docente – realizado · vicerrectorado – aprobado)</h4>
+        <div id="pl-informes" class="flex flex-wrap gap-2"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ VISTA DE IMPRESIÓN ============ -->
+  <section id="v-print" class="hidden space-y-3">
+    <div class="no-print flex justify-between">
+      <button onclick="cerrarImpresion()" class="btn bg-slate-200">⬅ Volver</button>
+      <button onclick="window.print()" class="btn btn-primary">🖨️ Imprimir / Guardar PDF</button>
+    </div>
+    <div id="print-area" class="bg-white p-6 rounded-2xl border rep"></div>
+  </section>
+</div>
+
+<!-- MODAL CLAVE -->
+<div id="m-clave" class="hidden fixed inset-0 bg-slate-900/60 flex items-center justify-center p-4 z-50">
+  <div class="bg-white max-w-sm w-full p-5 rounded-3xl space-y-3 text-xs">
+    <h3 class="font-black text-sm">🔑 Cambiar contraseña</h3>
+    <div><label class="lbl">Usuario</label><input id="pw-u" class="inp"></div>
+    <div><label class="lbl">Contraseña actual</label><input id="pw-a" type="password" class="inp"></div>
+    <div><label class="lbl">Nueva contraseña (mín. 6)</label><input id="pw-n" type="password" class="inp"></div>
+    <div><label class="lbl">Confirmar nueva contraseña</label><input id="pw-c" type="password" class="inp"></div>
+    <div class="flex gap-2"><button onclick="cerrarModal('m-clave')" class="btn bg-slate-100 w-1/2">Cancelar</button>
+      <button onclick="cambiarClave()" class="btn btn-primary w-1/2">Actualizar</button></div>
+  </div>
+</div>
+
+<!-- MODAL RECUPERAR CONTRASEÑA -->
+<div id="m-recup" class="hidden fixed inset-0 bg-slate-900/60 flex items-center justify-center p-4 z-50">
+  <div class="bg-white max-w-sm w-full p-5 rounded-3xl space-y-3 text-xs">
+    <h3 class="font-black text-sm">🔁 Recuperar contraseña</h3>
+    <p class="text-slate-600">Ingrese su usuario y su número de cédula registrados. Se enviará una nueva contraseña al <b>correo registrado</b> en el sistema.</p>
+    <div><label class="lbl">Usuario</label><input id="rc-u" class="inp" placeholder="nombre.apellido"></div>
+    <div><label class="lbl">Número de cédula</label><input id="rc-c" class="inp font-mono" inputmode="numeric"></div>
+    <div class="flex gap-2"><button onclick="cerrarModal('m-recup')" class="btn bg-slate-100 w-1/2">Cancelar</button>
+      <button onclick="recuperarClave()" class="btn btn-primary w-1/2">Enviar</button></div>
+  </div>
+</div>
+
+<!-- MODAL BAJA DE ESTUDIANTE -->
+<div id="m-baja" class="hidden fixed inset-0 bg-slate-900/60 flex items-center justify-center p-4 z-50">
+  <div class="bg-white max-w-sm w-full p-5 rounded-3xl space-y-3 text-xs">
+    <h3 class="font-black text-sm">⛔ Inhabilitar estudiante</h3>
+    <p id="bj-nom" class="font-bold"></p><input type="hidden" id="bj-id">
+    <div><label class="lbl">Motivo</label><select id="bj-mot" class="inp"><option>Deserción escolar</option><option>Cambio de institución</option><option>Otro</option></select></div>
+    <div><label class="lbl">Fecha</label><input id="bj-fec" type="date" class="inp"></div>
+    <div><label class="lbl">Observación (institución de destino, documento, etc.)</label><input id="bj-obs" class="inp"></div>
+    <p class="text-[11px] text-slate-500">Dejará de aparecer en planillas, nóminas e informes. Sus calificaciones se conservan y puede reactivarse.</p>
+    <div class="flex gap-2"><button onclick="cerrarModal('m-baja')" class="btn bg-slate-100 w-1/2">Cancelar</button>
+      <button onclick="confirmarBaja()" class="btn btn-danger w-1/2">Inhabilitar</button></div>
+  </div>
+</div>
+
+<!-- MODAL CREDENCIALES -->
+<div id="m-cred" class="hidden fixed inset-0 bg-slate-900/60 flex items-center justify-center p-4 z-50">
+  <div class="bg-white max-w-sm w-full p-5 rounded-3xl space-y-3 text-xs">
+    <h3 class="font-black text-sm">✅ Credenciales generadas</h3>
+    <p class="text-amber-800 bg-amber-50 border border-amber-200 rounded-xl p-2">Anótelas y entréguelas al usuario. <b>Por seguridad no se volverán a mostrar.</b> El usuario puede cambiar su contraseña desde el inicio.</p>
+    <div class="font-mono text-sm bg-slate-50 border rounded-xl p-3 space-y-1"><div>Usuario: <b id="cr-u"></b></div><div>Contraseña: <b id="cr-c"></b></div></div>
+    <button onclick="cerrarModal('m-cred')" class="btn btn-primary w-full">Entendido</button>
+  </div>
+</div>
+
+<!-- MODAL ESTUDIANTE -->
+<div id="m-est" class="hidden fixed inset-0 bg-slate-900/60 flex items-center justify-center p-4 z-50">
+  <div class="bg-white max-w-2xl w-full p-5 rounded-3xl space-y-3 text-xs max-h-[95vh] overflow-y-auto">
+    <h3 class="font-black text-sm" id="me-tit">Estudiante</h3>
+    <input type="hidden" id="me-id">
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+      <div><label class="lbl">Cédula *</label><input id="me-ced" class="inp font-mono"></div>
+      <div class="sm:col-span-2"><label class="lbl">Apellidos y nombres *</label><input id="me-nom" class="inp"></div>
+      <div><label class="lbl">Jornada *</label><select id="me-jor" class="inp"></select></div>
+      <div><label class="lbl">Año de básica / bachillerato *</label><select id="me-gra" class="inp"></select></div>
+      <div><label class="lbl">Paralelo *</label><select id="me-par" class="inp"></select></div>
+      <div><label class="lbl">¿Repetidor?</label><select id="me-rep" class="inp"><option value="NO">NO</option><option value="SI">SÍ</option></select></div>
+      <div><label class="lbl">Origen</label><select id="me-ori" class="inp"><option>Antiguo</option><option>Otra Institución</option></select></div>
+      <div><label class="lbl">NEE / discapacidad</label><select id="me-nee" class="inp"></select></div>
+      <div><label class="lbl">Estudiante NAP</label><select id="me-nap" class="inp"><option value="NO">NO</option><option value="SI">SÍ</option></select></div>
+      <div><label class="lbl">Representante</label><input id="me-repr" class="inp"></div>
+      <div><label class="lbl">Teléfono</label><input id="me-tel" class="inp"></div>
+      <div class="sm:col-span-3"><label class="lbl">Observaciones</label><input id="me-obs" class="inp"></div>
+    </div>
+    <div class="flex gap-2"><button onclick="cerrarModal('m-est')" class="btn bg-slate-100 w-1/2">Cancelar</button>
+      <button onclick="guardarEstudiante()" class="btn btn-primary w-1/2">Guardar en Drive</button></div>
+  </div>
+</div>
+
+<!-- MODAL DOCENTE -->
+<div id="m-doc" class="hidden fixed inset-0 bg-slate-900/60 flex items-center justify-center p-4 z-50">
+  <div class="bg-white max-w-3xl w-full p-5 rounded-3xl space-y-3 text-xs max-h-[95vh] overflow-y-auto">
+    <h3 class="font-black text-sm" id="md-tit">Docente</h3>
+    <input type="hidden" id="md-id">
+    <div class="grid grid-cols-1 sm:grid-cols-4 gap-2">
+      <div><label class="lbl">Título</label><select id="md-tit2" class="inp"><option value="">—</option><option>Lic.</option><option>Licda.</option><option>Msc.</option><option>Mgs.</option><option>Dr.</option><option>Dra.</option><option>Ing.</option><option>Prof.</option></select></div>
+      <div><label class="lbl">Nombres *</label><input id="md-nom" class="inp"></div>
+      <div><label class="lbl">Apellidos *</label><input id="md-ape" class="inp"></div>
+      <div><label class="lbl">Cédula</label><input id="md-ced" class="inp font-mono" inputmode="numeric"></div>
+      <div><label class="lbl">Correo (para recuperar contraseña)</label><input id="md-cor" class="inp"></div>
+      <div><label class="lbl">Jornada *</label><select id="md-jor" class="inp"><option value="Matutina">Matutina</option><option value="Vespertina">Vespertina</option><option value="Ambas">Matutina y Vespertina</option></select></div>
+      <div><label class="lbl">Carga horaria semanal *</label><input id="md-car" type="number" min="1" max="40" class="inp"></div>
+      <div><label class="lbl">Optativa / Participación estudiantil</label><select id="md-opt" class="inp"><option value="NO">Ninguna</option><option>Asignatura Optativa</option><option>Participación Estudiantil (PPE)</option></select></div>
+      <div><label class="lbl">Estado</label><select id="md-est" class="inp"><option>ACTIVO</option><option>INACTIVO</option></select></div>
+    </div>
+    <div><label class="lbl">Años de básica / cursos *</label><div id="md-gra" class="grid grid-cols-2 sm:grid-cols-4 gap-1 bg-slate-50 border rounded-xl p-2"></div></div>
+    <div><label class="lbl">Paralelos *</label><div id="md-par" class="flex gap-3 bg-slate-50 border rounded-xl p-2"></div></div>
+    <div><label class="lbl">Asignaturas * <span class="font-normal text-slate-500">("Docente de Aula" habilita Matemática, Lengua y Literatura, Estudios Sociales, Ciencias Naturales y ECA en 2° a 7°; en Inicial/Preparatoria, el registro de destrezas)</span></label>
+      <div id="md-asig" class="grid grid-cols-2 sm:grid-cols-4 gap-1 bg-slate-50 border rounded-xl p-2"></div>
+      <input id="md-otras" class="inp mt-1" placeholder="Otras asignaturas, separadas por coma"></div>
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+      <div><label class="lbl">¿Es docente tutor?</label><select id="md-tut" class="inp"><option value="NO">NO</option><option value="SI">SÍ</option></select></div>
+      <div><label class="lbl">Curso de tutoría</label><select id="md-tgra" class="inp"></select></div>
+      <div><label class="lbl">Paralelo de tutoría</label><select id="md-tpar" class="inp"></select></div>
+    </div>
+    <div class="flex gap-2"><button onclick="cerrarModal('m-doc')" class="btn bg-slate-100 w-1/2">Cancelar</button>
+      <button onclick="guardarDocente()" class="btn btn-primary w-1/2">Guardar en Drive</button></div>
+  </div>
+</div>
+
+<div id="toast" class="hidden fixed bottom-4 right-4 max-w-sm p-3 rounded-2xl shadow-lg text-xs font-bold z-[60]"></div>
+<div id="loading" class="hidden fixed inset-0 bg-white/50 z-[55] flex items-center justify-center"><div class="bg-white border rounded-2xl px-4 py-3 shadow text-xs font-bold">⏳ Procesando…</div></div>
+
+<script>
+// ============================================================================
+// ESTADO Y UTILIDADES
+// ============================================================================
+const S = { token: null, ses: null, cat: null, pl: {}, sub: 'form', ests: [], docs: [], per: [], inf: { asigs: [] } };
+const $ = id => document.getElementById(id);
+const esc = v => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const f2 = v => (v === '' || v == null || isNaN(Number(v))) ? '' : Number(v).toFixed(2);
+const PARENTESCOS = ['Madre', 'Padre', 'Abuelo/a', 'Tío/a', 'Hermano/a mayor', 'Representante legal', 'Otro'];
+const NEE_OPC = ['Ninguna', 'Grado 1 (No asociada a discapacidad)', 'Grado 2 (No asociada a discapacidad)', 'Grado 3 (Asociada a discapacidad)'];
+const CONDUCTA = [{ v: 'A', t: 'A – Muy satisfactorio' }, { v: 'B', t: 'B – Satisfactorio' }, { v: 'C', t: 'C – Poco satisfactorio' }, { v: 'D', t: 'D – Mejorable' }, { v: 'E', t: 'E – Insatisfactorio' }];
+const INI_TXT = { I: 'Iniciada', EP: 'En proceso', A: 'Adquirida', NE: 'No evaluada' }; // valores antiguos
+const LETRAS = ['E-', 'E+', 'D-', 'D+', 'C-', 'C+', 'B-', 'B+', 'A-', 'A+'];          // Art. 7 Acuerdo 82-A
+const rangoL = v => { const i = LETRAS.indexOf(v); return i >= 0 ? i + 1 : ({ I: 2, EP: 5, A: 9 })[v] || null; };
+const bandaL = v => { if (v === 'NE') return 'No estudiada / no trabajada'; const r = rangoL(v); return !r ? '' : (r >= 7 ? 'Destreza o aprendizaje alcanzado' : (r >= 5 ? 'Destreza o aprendizaje en proceso de desarrollo' : 'Destreza o aprendizaje iniciado')); };
+const critTxt = P => P.criterio === 'INSUMO' ? `algún insumo entre 0,01 y ${f2(P.notaMin - 0.01)}` : (P.criterio === 'PORCENTAJE' ? `${P.pct}% o más de insumos menores a ${f2(P.notaMin)}` : `promedio inicial del corte entre 0,01 y ${f2(P.notaMin - 0.01)}`);
+const TRIMS = [{ v: 1, t: '1° Trimestre' }, { v: 2, t: '2° Trimestre' }, { v: 3, t: '3° Trimestre' }];
+
+function opts(list, sel, ph) {
+  return (ph !== undefined ? `<option value="">${esc(ph)}</option>` : '') + list.map(o => {
+    const v = typeof o === 'object' ? o.v : o, t = typeof o === 'object' ? o.t : o;
+    return `<option value="${esc(v)}" ${String(v) === String(sel) ? 'selected' : ''}>${esc(t)}</option>`;
+  }).join('');
+}
+function toast(msg, tipo) {
+  const t = $('toast');
+  t.className = 'fixed bottom-4 right-4 max-w-sm p-3 rounded-2xl shadow-lg text-xs font-bold z-[60] ' + (tipo === 'err' ? 'bg-red-600 text-white' : 'bg-emerald-700 text-white');
+  t.textContent = msg; clearTimeout(t._h); t._h = setTimeout(() => t.classList.add('hidden'), tipo === 'err' ? 7000 : 4500);
+}
+function cargando(on) { $('loading').classList.toggle('hidden', !on); }
+function abrirModal(id) { $(id).classList.remove('hidden'); if (id === 'm-clave' && S.ses) $('pw-u').value = S.ses.usuario; }
+function cerrarModal(id) { $(id).classList.add('hidden'); }
+function gradosList() { return S.cat.grados.map(g => g.g); }
+function esIni(g) { return /Inicial|Preparatoria/.test(g || ''); }
+function nivelG(g) { const x = S.cat.grados.find(y => y.g === g); return x ? x.n : ''; }
+function ordenG(g) { const x = S.cat.grados.find(y => y.g === g); return x ? x.o : 99; }
+function tipoEsc(g) { return ordenG(g) <= 4 ? 'ELEMENTAL' : 'CUANTITATIVA'; }
+function esRectora() { return S.ses && S.ses.rol === 'RECTORA'; }
+function jornadasDir(conAmbas) {
+  if (S.cat.jornadaFija) return [S.cat.jornadaFija];
+  return conAmbas ? [{ v: 'Ambas', t: 'Todas las jornadas' }, 'Matutina', 'Vespertina'] : ['Matutina', 'Vespertina'];
+}
+
+// ============================================================================
+// CONEXIÓN CON EL SERVIDOR
+// Si esta página se abre desde Apps Script usa google.script.run.
+// Si se publica FUERA de Google (GitHub Pages, Netlify…) usa la URL /exec de abajo:
+// así funciona con cualquier cuenta de Google abierta en el navegador, o sin ninguna.
+// ============================================================================
+const API_URL = 'https://script.google.com/macros/s/AKfycbxVhjoyCK1PdX-ftU9wlpBEM7KRJnItXoXw9GjD8FKaj_KkovIfjmlOqbKfBfVGCv0j/exec';
+const EN_APPS_SCRIPT = typeof google !== 'undefined' && google.script && google.script.run;
+function errorApi(m, ko) {
+  m = String(m || 'Error de conexión').replace(/^Error:\s*/, '');
+  if (m.indexOf('SESION_EXPIRADA') >= 0) { alert('Su sesión expiró. Ingrese nuevamente.'); salir(true); }
+  ko(new Error(m));
+}
+function api(fn, ...args) {
+  return new Promise((ok, ko) => {
+    if (EN_APPS_SCRIPT) {
+      google.script.run.withSuccessHandler(ok).withFailureHandler(err => errorApi(err && err.message || err, ko))[fn](...args);
+      return;
+    }
+    if (!/^https:\/\/script\.google\.com\/macros\/s\/.+\/exec$/.test(API_URL)) return errorApi('Falta configurar API_URL en Index.html (URL que termina en /exec).', ko);
+    // text/plain evita la verificación previa CORS; 'omit' no envía las cuentas de Google del navegador.
+    fetch(API_URL, { method: 'POST', redirect: 'follow', credentials: 'omit', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ fn, args }) })
+      .then(r => r.json())
+      .then(r => r.ok ? ok(r.data) : errorApi(r.error, ko))
+      .catch(e => errorApi('No se pudo conectar con el servidor. Revise su internet. (' + e.message + ')', ko));
+  });
+}
+const apiT = (fn, ...a) => api(fn, S.token, ...a);
+async function run(fn) { cargando(true); try { return await fn(); } catch (e) { toast(e.message, 'err'); } finally { cargando(false); } }
+
+// ---- Cálculos (espejo del servidor; el servidor recalcula siempre al guardar) ----
+const trunc2 = n => Math.floor(Number((Number(n) * 100).toFixed(6))) / 100;
+function numC(v) { if (v === '' || v == null) return null; const n = Number(String(v).replace(',', '.')); return (isNaN(n) || n < 0 || n > 10) ? NaN : n; }
+function equivC(nota, tipo) {
+  if (nota === '' || nota == null) return '';
+  const r = S.cat.escala.filter(e => e.tipo === tipo).find(e => nota >= e.desde - 1e-9 && nota <= e.hasta + 1e-9);
+  return r ? r.codigo + ' – ' + r.desc : '?';
+}
+// Art. 10 num. 4: refuerzo solo en insumos bajos; promedio con la nota inicial, hasta 7,00; nunca baja.
+function efectivoC(f, r) { const P = S.cat.params; if (r === null || !(f < P.notaMin)) return f; return Math.max(f, Math.min(P.topeRef, trunc2((f + r) / 2))); }
+// Art. 11: >7 y <9 → mejora directa (hasta 9,00); 0,01–6,99 → mejora con refuerzo (hasta 7,00).
+function tipoMejoraC(s) { const P = S.cat.params; if (s === null || s === '' || s == null) return ''; if (s > P.notaMin && s < P.topeMejDir) return 'DIRECTA'; if (s > 0 && s < P.notaMin) return 'REFUERZO'; return ''; }
+function calcSumC(promF, s, aplica, m) {
+  const P = S.cat.params, tipo = tipoMejoraC(s); let ef = s;
+  if (s !== null && aplica && tipo && m !== null) ef = Math.max(s, Math.min(tipo === 'DIRECTA' ? P.topeMejDir : P.topeMejRef, trunc2((s + m) / 2)));
+  if (promF === '' || promF == null || ef === null) return { tipo, sumEf: ef === null ? '' : ef, pF: promF === '' || promF == null ? '' : trunc2(promF * P.pf / 100), pS: '', nota: '' };
+  const pF = trunc2(promF * P.pf / 100), pS = trunc2(ef * P.ps / 100);
+  return { tipo, sumEf: ef, pF, pS, nota: trunc2(pF + pS) };
+}
+function estadoIniC(vals) {
+  const rs = vals.map(rangoL).filter(x => x !== null); if (!rs.length) return '';
+  return LETRAS[Math.min(10, Math.max(1, Math.round(rs.reduce((a, b) => a + b, 0) / rs.length))) - 1];
+}
+const esElementalSinSum = g => { const o = ordenG(g); return o >= 2 && o <= 4 && !S.cat.params.elemSum; };
+
+// ============================================================================
+// INICIO, LOGIN Y NAVEGACIÓN
+// ============================================================================
+api('apiInfoPublica').then(i => {
+  $('h-sub').textContent = `AMIE ${i.amie} · ${i.ciudad}` + (i.periodo ? ` · Año lectivo ${i.periodo}` : '') + (i.acuerdo ? ` · Acuerdo ${i.acuerdo}` : '');
+}).catch(() => {});
+$('lg-p').addEventListener('keydown', e => { if (e.key === 'Enter') login(); });
+
+async function login() {
+  const u = $('lg-u').value.trim(), p = $('lg-p').value, er = $('lg-err');
+  er.classList.add('hidden');
+  if (!u || !p) { er.textContent = 'Ingrese su usuario y contraseña.'; er.classList.remove('hidden'); return; }
+  await run(async () => {
+    const r = await api('apiLogin', u, p);
+    if (!r.success) { er.textContent = r.mensaje; er.classList.remove('hidden'); return; }
+    S.token = r.token; S.ses = r.sesion; $('lg-p').value = '';
+    S.cat = await apiT('apiCatalogos');
+    iniciarApp();
+  });
+}
+
+function salir(silencioso) {
+  if (S.token && !silencioso) api('apiCerrarSesion', S.token).catch(() => {});
+  S.token = null; S.ses = null; S.cat = null;
+  $('v-app').classList.add('hidden'); $('v-print').classList.add('hidden'); $('v-login').classList.remove('hidden');
+  $('badge').classList.add('hidden'); $('badge').classList.remove('flex');
+}
+
+function iniciarApp() {
+  $('v-login').classList.add('hidden'); $('v-app').classList.remove('hidden');
+  $('badge').classList.remove('hidden'); $('badge').classList.add('flex');
+  $('b-nombre').textContent = S.ses.nombre;
+  $('b-rol').textContent = S.ses.cargo + (S.ses.rol === 'DOCENTE' ? ' · ' + S.ses.jornada : '');
+  const R = S.ses.rol;
+  const tabs = R === 'DOCENTE' ? [['planilla', '📝 Mis calificaciones']]
+    : R === 'RECTORA' ? [['estudiantes', '🎒 Estudiantes'], ['docentes', '👨‍🏫 Docentes'], ['periodos', '📅 Fechas, cortes y bloqueos'], ['informes', '📊 Informes'], ['seguimiento', '⚠️ Seguimiento y cumplimiento'], ['institucion', '🏫 Institución']]
+    : [['estudiantes', '🎒 Estudiantes'], ['informes', '📊 Informes'], ['seguimiento', '⚠️ Seguimiento y cumplimiento']];
+  $('nav').innerHTML = tabs.map(t => `<button data-tab="${t[0]}" onclick="irTab('${t[0]}')" class="tabbtn px-4 py-2 rounded-xl font-semibold text-slate-600 hover:bg-slate-100 whitespace-nowrap">${t[1]}</button>`).join('');
+  document.querySelectorAll('.solo-rectora').forEach(e => e.classList.toggle('hidden', R !== 'RECTORA'));
+  if (R !== 'DOCENTE') prepararFiltrosDirectivos();
+  irTab(tabs[0][0]);
+}
+
+const ON_TAB = {
+  estudiantes: () => cargarEstudiantes(), docentes: () => cargarDocentes(), periodos: () => { renderPeriodos(); cargarDesbloqueos(); },
+  informes: () => infCurso(), seguimiento: () => cumCortes(), institucion: () => cargarInstitucion(), planilla: () => initPlanilla()
+};
+function irTab(t) {
+  document.querySelectorAll('.tab').forEach(x => x.classList.add('hidden'));
+  $('tab-' + t).classList.remove('hidden');
+  document.querySelectorAll('.tabbtn').forEach(b => {
+    const on = b.dataset.tab === t;
+    b.classList.toggle('bg-sky-900', on); b.classList.toggle('text-white', on); b.classList.toggle('text-slate-600', !on);
+  });
+  ON_TAB[t] && ON_TAB[t]();
+}
+
+async function cambiarClave() {
+  const u = $('pw-u').value.trim(), a = $('pw-a').value, n = $('pw-n').value, c = $('pw-c').value;
+  if (!u || !a || !n) return toast('Complete todos los campos.', 'err');
+  if (n !== c) return toast('La confirmación no coincide.', 'err');
+  await run(async () => {
+    const r = await api('apiCambiarContrasena', u, a, n);
+    if (!r.success) return toast(r.mensaje, 'err');
+    toast(r.mensaje, 'ok'); ['pw-a', 'pw-n', 'pw-c'].forEach(i => $(i).value = ''); cerrarModal('m-clave');
+  });
+}
+
+async function recuperarClave() {
+  const u = $('rc-u').value.trim(), c = $('rc-c').value.trim();
+  if (!u || !c) return toast('Ingrese su usuario y su cédula.', 'err');
+  await run(async () => {
+    const r = await api('apiRecuperarClave', u, c);
+    if (!r.success) return toast(r.mensaje, 'err');
+    toast(r.mensaje, 'ok'); $('rc-c').value = ''; cerrarModal('m-recup');
+  });
+}
+
+async function refrescarCatalogo() { S.cat = await apiT('apiCatalogos'); }
+
+function cargarCortes(selId, jornada, trim, sel) {
+  const cs = S.cat.periodos.filter(p => p.tipo === 'CORTE' && p.trimestre === Number(trim) && (p.jornada === 'Ambas' || p.jornada === jornada || jornada === 'Ambas'));
+  const def = sel && cs.find(c => c.id === sel) ? sel : ((cs.find(c => c.estado === 'ABIERTO') || cs[cs.length - 1] || {}).id || '');
+  $(selId).innerHTML = cs.length ? opts(cs.map(c => ({ v: c.id, t: `${c.nombre} (${c.estado})` })), def) : '<option value="">— Sin cortes configurados —</option>';
+}
+function trimestreActual() {
+  const h = S.cat.hoy, t = S.cat.periodos.find(p => p.tipo === 'TRIMESTRE' && p.inicio && p.inicio <= h && p.cierre >= h);
+  return t ? t.trimestre : 1;
+}
+
+// ============================================================================
+// DIRECTIVOS: FILTROS COMUNES
+// ============================================================================
+function prepararFiltrosDirectivos() {
+  const G = gradosList(), Pa = S.cat.paralelos;
+  $('est-jor').innerHTML = opts(jornadasDir(true));
+  $('est-gra').innerHTML = opts(G, '', 'Todos los años');
+  $('est-par').innerHTML = opts(Pa, '', 'Todos los paralelos');
+  $('inf-jor').innerHTML = opts(jornadasDir(false));
+  $('inf-gra').innerHTML = opts(G);
+  $('inf-par').innerHTML = opts(Pa);
+  $('inf-trim').innerHTML = opts(TRIMS, trimestreActual());
+  $('seg-jor').innerHTML = opts(jornadasDir(!S.cat.jornadaFija));
+  $('seg-gra').innerHTML = opts(G, '', 'Todos');
+  $('seg-par').innerHTML = opts(Pa, '', 'Todos');
+  const anual = S.cat.periodos.find(p => p.tipo === 'ANUAL');
+  $('seg-desde').value = anual ? anual.inicio : S.cat.hoy; $('seg-hasta').value = S.cat.hoy;
+  $('cum-jor').innerHTML = opts(jornadasDir(false));
+  $('cum-trim').innerHTML = opts(TRIMS, trimestreActual());
+}
+
+// ============================================================================
+// ESTUDIANTES
+// ============================================================================
+async function cargarEstudiantes() {
+  await run(async () => {
+    S.ests = await apiT('apiListarEstudiantes', { jornada: $('est-jor').value, grado: $('est-gra').value, paralelo: $('est-par').value, incluirRetirados: $('est-ret').checked });
+    renderEstudiantes();
+  });
+}
+function renderEstudiantes() {
+  const q = $('est-txt').value.trim().toLowerCase();
+  const lista = S.ests.filter(e => !q || String(e.nombres).toLowerCase().includes(q) || String(e.cedula).includes(q));
+  $('est-body').innerHTML = lista.map(e => `<tr>
+    <td class="font-mono">${esc(e.id)}</td><td class="font-mono">${esc(e.cedula)}</td><td class="font-bold">${esc(e.nombres)}</td>
+    <td>${esc(e.jornada)}</td><td>${esc(e.grado)} - ${esc(e.paralelo)}</td>
+    <td><span class="px-2 rounded ${e.repetidor === 'SI' ? 'bg-red-100 text-red-800' : 'bg-slate-100'} font-bold text-[10px]">${esc(e.repetidor)}</span></td>
+    <td>${esc(e.origen)}</td><td>${esc(e.nee)}</td><td class="font-bold">${esc(e.nap)}</td>
+    <td>${e.estado === 'RETIRADO' ? `<span class="px-2 rounded bg-red-100 text-red-800 font-bold text-[10px]">INHABILITADO</span><br><span class="text-[10px] text-slate-500">${esc(e.motivoBaja)} ${esc(e.fechaBaja)}</span>` : '<span class="px-2 rounded bg-emerald-100 text-emerald-800 font-bold text-[10px]">ACTIVO</span>'}</td>
+    <td class="whitespace-nowrap ${esRectora() ? '' : 'hidden'}"><button onclick="abrirEstudiante('${esc(e.id)}')" class="btn btn-sec py-1">✏️ Modificar</button>
+      ${e.estado === 'RETIRADO' ? `<button onclick="reactivarEstudiante('${esc(e.id)}')" class="btn btn-ok py-1">↩ Reactivar</button>` : `<button onclick="abrirBaja('${esc(e.id)}')" class="btn bg-red-50 text-red-700 border border-red-200 py-1">⛔ Inhabilitar</button>`}</td></tr>`).join('')
+    || '<tr><td colspan="11" class="text-center text-slate-400 py-4">Sin estudiantes con esos filtros.</td></tr>';
+  $('est-count').textContent = `Mostrando ${lista.length} estudiante(s).`;
+}
+function abrirEstudiante(id) {
+  const e = id ? S.ests.find(x => x.id === id) : {};
+  $('me-tit').textContent = id ? '✏️ Modificar: ' + e.nombres : '➕ Nuevo estudiante';
+  $('me-id').value = id || '';
+  $('me-ced').value = e.cedula || ''; $('me-nom').value = e.nombres || '';
+  $('me-jor').innerHTML = opts(['Matutina', 'Vespertina'], e.jornada);
+  $('me-gra').innerHTML = opts(gradosList(), e.grado || $('est-gra').value);
+  $('me-par').innerHTML = opts(S.cat.paralelos, e.paralelo || $('est-par').value);
+  $('me-rep').value = e.repetidor === 'SI' ? 'SI' : 'NO';
+  $('me-ori').value = e.origen || 'Antiguo';
+  const nee = NEE_OPC.includes(e.nee) || !e.nee ? NEE_OPC : NEE_OPC.concat([e.nee]);
+  $('me-nee').innerHTML = opts(nee, e.nee || 'Ninguna');
+  $('me-nap').value = e.nap === 'SI' ? 'SI' : 'NO';
+  $('me-repr').value = e.representante || ''; $('me-tel').value = e.telefono || '';
+  $('me-obs').value = e.observaciones || '';
+  abrirModal('m-est');
+}
+async function guardarEstudiante() {
+  const o = {
+    id: $('me-id').value, cedula: $('me-ced').value, nombres: $('me-nom').value, jornada: $('me-jor').value, grado: $('me-gra').value,
+    paralelo: $('me-par').value, repetidor: $('me-rep').value, origen: $('me-ori').value, nee: $('me-nee').value, nap: $('me-nap').value,
+    representante: $('me-repr').value, telefono: $('me-tel').value, observaciones: $('me-obs').value
+  };
+  await run(async () => { const r = await apiT('apiGuardarEstudiante', o); toast(r.mensaje, 'ok'); cerrarModal('m-est'); });
+  cargarEstudiantes();
+}
+// ---- Bajas ----
+function abrirBaja(id) {
+  const e = S.ests.find(x => x.id === id);
+  $('bj-id').value = id; $('bj-nom').textContent = e.nombres + ' · ' + e.grado + ' - ' + e.paralelo;
+  $('bj-fec').value = S.cat.hoy; $('bj-obs').value = '';
+  abrirModal('m-baja');
+}
+async function confirmarBaja() {
+  let ok = false;
+  await run(async () => { const r = await apiT('apiDarDeBaja', $('bj-id').value, $('bj-mot').value, $('bj-fec').value, $('bj-obs').value); toast(r.mensaje, 'ok'); ok = true; });
+  if (ok) { cerrarModal('m-baja'); cargarEstudiantes(); }
+}
+async function reactivarEstudiante(id) {
+  if (!confirm('¿Reactivar a este estudiante?')) return;
+  let ok = false;
+  await run(async () => { const r = await apiT('apiReactivarEstudiante', id); toast(r.mensaje, 'ok'); ok = true; });
+  if (ok) cargarEstudiantes();
+}
+
+// ---- Importación desde Excel ----
+const normH = h => String(h || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[°º.:]/g, ' ').replace(/\s+/g, ' ').trim();
+function campoDeColumna(h) {
+  h = normH(h);
+  if (!h) return null;
+  if (/telefono|celular|movil|contacto/.test(h)) return 'telefono';
+  if (/represent/.test(h)) return /cedula/.test(h) ? null : 'representante';
+  if (/cedula|identificacion|^ci$|^c i$|documento/.test(h)) return 'cedula';
+  if (/observ/.test(h)) return 'observaciones';
+  if (/apellidos? y nombres?|nombres? y apellidos?|estudiante|alumno|nombre completo/.test(h)) return 'nombresCompletos';
+  if (/^apellidos?$/.test(h)) return 'apellidos';
+  if (/^nombres?$/.test(h)) return 'nombres';
+  if (/jornada/.test(h)) return 'jornada';
+  if (/paralelo/.test(h)) return 'paralelo';
+  if (/grado|curso|ano de basica|ano basica|^ano$|^anio/.test(h)) return 'grado';
+  if (/repet/.test(h)) return 'repetidor';
+  if (/origen|procedencia/.test(h)) return 'origen';
+  if (/\bnap\b/.test(h)) return 'nap';
+  if (/\bnee\b|necesidad|discapacidad/.test(h)) return 'nee';
+  return null;
+}
+function leerExcel(file) {
+  if (!file) return;
+  if (typeof XLSX === 'undefined') return toast('No se pudo cargar el lector de Excel. Revise su conexión a internet.', 'err');
+  const fr = new FileReader();
+  fr.onload = ev => {
+    try {
+      const wb = XLSX.read(new Uint8Array(ev.target.result), { type: 'array' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: '' });
+      let hi = -1, mapa = null;
+      for (let i = 0; i < Math.min(aoa.length, 15); i++) {
+        const m = {}; aoa[i].forEach((h, c) => { const k = campoDeColumna(h); if (k && m[k] === undefined) m[k] = c; });
+        if (m.cedula !== undefined && (m.nombresCompletos !== undefined || m.apellidos !== undefined)) { hi = i; mapa = m; break; }
+      }
+      if (hi < 0) throw new Error('No se encontró la fila de títulos. El archivo debe tener al menos las columnas "Cédula" y "Apellidos y nombres".');
+      const val = (row, k) => mapa[k] === undefined ? '' : String(row[mapa[k]] == null ? '' : row[mapa[k]]).trim();
+      const filas = [];
+      for (let i = hi + 1; i < aoa.length; i++) {
+        const row = aoa[i];
+        if (!row.some(v => String(v).trim() !== '')) continue;
+        const nom = val(row, 'nombresCompletos') || [val(row, 'apellidos'), val(row, 'nombres')].filter(Boolean).join(' ');
+        filas.push({ _fila: i + 1, cedula: val(row, 'cedula'), nombres: nom, jornada: val(row, 'jornada'), grado: val(row, 'grado'),
+          paralelo: val(row, 'paralelo'), repetidor: val(row, 'repetidor'), origen: val(row, 'origen'), nee: val(row, 'nee'),
+          nap: val(row, 'nap'), representante: val(row, 'representante'), telefono: val(row, 'telefono'), observaciones: val(row, 'observaciones') });
+      }
+      if (!filas.length) throw new Error('El archivo no tiene filas de estudiantes debajo de los títulos.');
+      S.imp = filas;
+      const detect = Object.keys(mapa).map(k => `${k} ← "${aoa[hi][mapa[k]]}"`).join(' · ');
+      const cols = ['cedula', 'nombres', 'jornada', 'grado', 'paralelo', 'repetidor', 'nee', 'nap', 'representante'];
+      $('imp-prev').innerHTML = `<p class="text-[11px]"><b>Hoja:</b> ${esc(wb.SheetNames[0])} · <b>Filas leídas:</b> ${filas.length} · <b>Columnas detectadas:</b> ${esc(detect)}</p>
+        <div class="overflow-x-auto border rounded-xl bg-white max-h-64"><table class="tabla"><thead><tr><th>Fila</th>${cols.map(c => `<th>${c}</th>`).join('')}</tr></thead><tbody>
+        ${filas.slice(0, 20).map(f => `<tr><td>${f._fila}</td>${cols.map(c => `<td>${esc(f[c])}</td>`).join('')}</tr>`).join('')}</tbody></table></div>
+        ${filas.length > 20 ? `<p class="text-[11px] text-slate-500">Vista previa de 20 de ${filas.length} filas.</p>` : ''}
+        <button onclick="importarEstudiantes()" class="btn btn-primary">✅ Importar ${filas.length} estudiantes a Drive</button>`;
+    } catch (e) { toast(e.message, 'err'); $('imp-prev').innerHTML = ''; }
+  };
+  fr.readAsArrayBuffer(file);
+}
+async function importarEstudiantes() {
+  if (!S.imp || !S.imp.length) return;
+  await run(async () => {
+    const r = await apiT('apiImportarEstudiantes', S.imp);
+    toast(r.mensaje, r.errores.length ? 'err' : 'ok');
+    $('imp-prev').innerHTML = `<div class="p-2 rounded-xl border ${r.errores.length ? 'bg-amber-50 border-amber-200' : 'bg-emerald-50 border-emerald-200'}">
+      <b>${esc(r.mensaje)}</b>${r.errores.length ? `<ul class="list-disc ml-5 mt-1 text-[11px] text-amber-900">${r.errores.map(x => `<li>${esc(x)}</li>`).join('')}</ul>
+      <p class="text-[11px] mt-1">Corrija esas filas en el Excel y vuelva a importarlo: las filas ya importadas solo se actualizarán, no se duplican.</p>` : ''}</div>`;
+    S.imp = null; $('imp-file').value = '';
+  });
+  cargarEstudiantes();
+}
+function descargarPlantilla() {
+  if (typeof XLSX === 'undefined') return toast('No se pudo cargar el generador de Excel.', 'err');
+  const ws = XLSX.utils.aoa_to_sheet([
+    ['Cédula', 'Apellidos y nombres', 'Jornada', 'Año de básica / curso', 'Paralelo', 'Repetidor', 'Origen', 'NEE', 'NAP', 'Representante', 'Teléfono', 'Observaciones'],
+    ['0104556677', 'Pérez López Ana María', 'Matutina', '5° Básica Media', 'A', 'NO', 'Antiguo', 'Ninguna', 'NO', 'María López', '0991234567', '']
+  ]);
+  ws['!cols'] = [12, 32, 11, 22, 9, 10, 16, 30, 6, 24, 12, 24].map(w => ({ wch: w }));
+  const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Estudiantes');
+  XLSX.writeFile(wb, 'plantilla_estudiantes.xlsx');
+}
+
+async function imprimirNomina(origen) {
+  const f = origen === 'inf'
+    ? { jornada: $('inf-jor').value, grado: $('inf-gra').value, paralelo: $('inf-par').value }
+    : { jornada: $('est-jor').value, grado: $('est-gra').value, paralelo: $('est-par').value };
+  await run(async () => mostrarReporte(await apiT('apiReporte', 'nomina', f)));
+}
+
+// ============================================================================
+// DOCENTES (RECTORA)
+// ============================================================================
+async function cargarDocentes() {
+  await run(async () => {
+    S.docs = await apiT('apiListarDocentes');
+    const act = S.docs.filter(d => d.estado !== 'INACTIVO').length;
+    $('doc-count').textContent = `Docentes activos: ${act} / 60`;
+    $('doc-body').innerHTML = S.docs.map(d => `<tr class="${d.estado === 'INACTIVO' ? 'opacity-50' : ''}">
+      <td class="font-mono">${esc(d.id)}</td><td class="font-bold">${esc(d.nombre)}</td><td class="font-mono text-sky-800">${esc(d.usuario)}</td>
+      <td>${esc(d.jornada)}</td><td>${esc(d.carga)} h</td><td>${esc(d.grados.join(', '))}<br><span class="text-slate-500">Paralelos: ${esc(d.paralelos.join(', '))}</span></td>
+      <td>${esc(d.asignaturas.join(', '))}</td><td>${d.esTutor ? `<span class="px-2 rounded bg-purple-100 text-purple-900 font-bold">${esc(d.tutorGrado)} - ${esc(d.tutorParalelo)}</span>` : 'NO'}</td>
+      <td>${esc(d.optativas)}</td><td>${esc(d.estado)}</td>
+      <td class="whitespace-nowrap"><button onclick="abrirDocente('${esc(d.id)}')" class="btn btn-sec py-1">✏️</button>
+      <button onclick="resetClaveDoc('${esc(d.id)}')" title="Generar nueva contraseña" class="btn btn-sec py-1">🔑</button></td></tr>`).join('')
+      || '<tr><td colspan="11" class="text-center text-slate-400 py-4">Aún no hay docentes registrados.</td></tr>';
+  });
+}
+function abrirDocente(id) {
+  const d = id ? S.docs.find(x => x.id === id) : { jornada: 'Matutina', carga: 30, grados: [], paralelos: [], asignaturas: [], estado: 'ACTIVO', optativas: 'NO' };
+  $('md-tit').textContent = id ? '✏️ Editar docente' : '➕ Nuevo docente (usuario y contraseña se generan automáticamente)';
+  $('md-id').value = id || '';
+  $('md-tit2').value = d.titulo || ''; $('md-nom').value = d.nombres || ''; $('md-ape').value = d.apellidos || '';
+  $('md-cor').value = d.correo || ''; $('md-ced').value = d.cedula || ''; $('md-jor').value = d.jornada; $('md-car').value = d.carga || 30;
+  $('md-opt').value = d.optativas || 'NO'; $('md-est').value = d.estado || 'ACTIVO';
+  $('md-gra').innerHTML = gradosList().map(g => `<label class="flex gap-1 items-center"><input type="checkbox" value="${esc(g)}" ${d.grados.includes(g) ? 'checked' : ''}>${esc(g)}</label>`).join('');
+  $('md-par').innerHTML = S.cat.paralelos.map(p => `<label class="flex gap-1 items-center"><input type="checkbox" value="${p}" ${d.paralelos.includes(p) ? 'checked' : ''}>${p}</label>`).join('');
+  $('md-asig').innerHTML = S.cat.materias.map(m => `<label class="flex gap-1 items-center"><input type="checkbox" value="${esc(m)}" ${d.asignaturas.includes(m) ? 'checked' : ''}>${esc(m)}</label>`).join('');
+  $('md-otras').value = d.asignaturas.filter(a => !S.cat.materias.includes(a)).join(', ');
+  $('md-tut').value = d.esTutor ? 'SI' : 'NO';
+  $('md-tgra').innerHTML = opts(gradosList(), d.tutorGrado, '—');
+  $('md-tpar').innerHTML = opts(S.cat.paralelos, d.tutorParalelo, '—');
+  abrirModal('m-doc');
+}
+const marcados = id => [...$(id).querySelectorAll('input:checked')].map(i => i.value);
+async function guardarDocente() {
+  const asig = marcados('md-asig').concat($('md-otras').value.split(',').map(s => s.trim()).filter(Boolean));
+  const o = {
+    id: $('md-id').value, titulo: $('md-tit2').value, nombres: $('md-nom').value, apellidos: $('md-ape').value, correo: $('md-cor').value, cedula: $('md-ced').value,
+    jornada: $('md-jor').value, carga: $('md-car').value, grados: marcados('md-gra'), paralelos: marcados('md-par'), asignaturas: asig,
+    esTutor: $('md-tut').value, tutorGrado: $('md-tgra').value, tutorParalelo: $('md-tpar').value, optativas: $('md-opt').value, estado: $('md-est').value
+  };
+  await run(async () => {
+    const r = await apiT('apiGuardarDocente', o);
+    cerrarModal('m-doc'); toast(r.mensaje, 'ok');
+    if (r.credenciales) mostrarCred(r.credenciales);
+    await refrescarCatalogo(); cargarDocentes();
+  });
+}
+async function resetClaveDoc(id) {
+  if (!confirm('¿Generar una nueva contraseña para este docente? La anterior dejará de funcionar.')) return;
+  await run(async () => { const r = await apiT('apiRestablecerClaveDocente', id); mostrarCred(r.credenciales); });
+}
+function mostrarCred(c) { $('cr-u').textContent = c.usuario; $('cr-c').textContent = c.clave; abrirModal('m-cred'); }
+
+// ============================================================================
+// PERIODOS, BLOQUEO Y DESBLOQUEOS (RECTORA)
+// ============================================================================
+function estadoC(p) {
+  if (!p.inicio || !p.cierre) return 'SIN FECHAS';
+  const h = S.cat.hoy; return h < p.inicio ? 'PRÓXIMO' : (h > p.cierre ? 'CERRADO' : 'ABIERTO');
+}
+function renderPeriodos() {
+  S.per = S.cat.periodos.map(p => Object.assign({}, p));
+  pintarPeriodos(); pintarBloqueo();
+  $('ds-doc').innerHTML = opts(S.cat.docentes.filter(d => d.estado !== 'INACTIVO').map(d => ({ v: d.id, t: d.nombre })), '', '— Seleccione —');
+  $('ds-per').innerHTML = opts(S.cat.periodos.filter(p => p.tipo !== 'ANUAL').map(p => ({ v: p.id, t: `${p.nombre} · ${p.jornada} (${p.estado})` })));
+  $('ds-gra').innerHTML = opts([{ v: 'TODOS', t: 'Todos sus cursos' }].concat(gradosList()));
+  $('ds-par').innerHTML = opts([{ v: 'TODOS', t: 'Todos' }].concat(S.cat.paralelos));
+  $('ds-asig').innerHTML = opts([{ v: 'TODAS', t: 'Todas sus asignaturas' }].concat(S.cat.materias.filter(m => m !== 'Docente de Aula'), ['Educación Cultural y Artística', 'Destrezas (Docente de Aula)', 'Conducta']).filter((x, i, a) => a.indexOf(x) === i));
+  const d = new Date(); d.setDate(d.getDate() + 3); $('ds-hasta').value = d.toISOString().slice(0, 10);
+}
+function pintarPeriodos() {
+  const badge = e => ({ 'ABIERTO': 'bg-emerald-100 text-emerald-800', 'CERRADO': 'bg-red-100 text-red-800', 'PRÓXIMO': 'bg-sky-100 text-sky-800' }[e] || 'bg-amber-100 text-amber-900');
+  $('per-body').innerHTML = S.per.map((p, i) => `<tr>
+    <td><input class="inp" value="${esc(p.nombre)}" onchange="S.per[${i}].nombre=this.value"></td>
+    <td><select class="inp" onchange="S.per[${i}].tipo=this.value;pintarPeriodos()">${opts([{ v: 'ANUAL', t: 'Año lectivo' }, { v: 'TRIMESTRE', t: 'Trimestre' }, { v: 'CORTE', t: 'Corte de alerta' }], p.tipo)}</select></td>
+    <td><select class="inp" ${p.tipo === 'ANUAL' ? 'disabled' : ''} onchange="S.per[${i}].trimestre=Number(this.value)">${opts(TRIMS, p.trimestre, '—')}</select></td>
+    <td><select class="inp" onchange="S.per[${i}].jornada=this.value">${opts(['Ambas', 'Matutina', 'Vespertina'], p.jornada)}</select></td>
+    <td><input type="date" class="inp" value="${esc(p.inicio)}" onchange="S.per[${i}].inicio=this.value;pintarPeriodos()"></td>
+    <td><input type="date" class="inp" value="${esc(p.cierre)}" onchange="S.per[${i}].cierre=this.value;pintarPeriodos()"></td>
+    <td><span class="px-2 py-0.5 rounded-full font-bold text-[10px] ${badge(estadoC(p))}">${estadoC(p)}</span></td>
+    <td><input class="inp" value="${esc(p.obs)}" onchange="S.per[${i}].obs=this.value"></td>
+    <td><button onclick="eliminarPeriodo(${i})" class="btn bg-red-50 text-red-700 py-1">🗑</button></td></tr>`).join('');
+}
+function agregarPeriodo() { S.per.push({ id: '', nombre: 'Corte de alerta – nuevo', tipo: 'CORTE', trimestre: trimestreActual(), jornada: 'Ambas', inicio: '', cierre: '', obs: '' }); pintarPeriodos(); }
+async function eliminarPeriodo(i) {
+  const p = S.per[i];
+  if (!p.id) { S.per.splice(i, 1); return pintarPeriodos(); }
+  if (!confirm('¿Eliminar "' + p.nombre + '"? Solo es posible si no tiene calificaciones.')) return;
+  await run(async () => { const r = await apiT('apiEliminarPeriodo', p.id); toast(r.mensaje, 'ok'); await refrescarCatalogo(); renderPeriodos(); });
+}
+async function guardarPeriodos() {
+  await run(async () => { const r = await apiT('apiGuardarPeriodos', S.per); toast(r.mensaje, 'ok'); await refrescarCatalogo(); renderPeriodos(); });
+}
+function pintarBloqueo() {
+  const b = $('btn-bloqueo');
+  b.textContent = S.cat.bloqueo ? '🟢 Habilitar registro (quitar bloqueo general)' : '🔒 Bloquear calificaciones (general)';
+  b.className = 'btn ' + (S.cat.bloqueo ? 'btn-ok' : 'btn-danger');
+}
+async function toggleBloqueo() {
+  if (!confirm(S.cat.bloqueo ? '¿Quitar el bloqueo general?' : '¿Bloquear el registro de calificaciones para TODOS los docentes?')) return;
+  await run(async () => { const r = await apiT('apiSetBloqueoGlobal', !S.cat.bloqueo); S.cat.bloqueo = r.bloqueo; pintarBloqueo(); toast(r.mensaje, 'ok'); });
+}
+async function cargarDesbloqueos() {
+  const l = await apiT('apiListarDesbloqueos').catch(() => []);
+  $('ds-body').innerHTML = l.map(d => `<tr class="${d.activo ? '' : 'opacity-50'}"><td>${esc(d.fecha)}</td><td>${esc(d.docente)}</td><td>${esc(d.periodo)}</td><td>${esc(d.curso)}</td><td>${esc(d.asignatura)}</td><td>${esc(d.vigente)}</td><td>${esc(d.obs)}</td><td>${esc(d.por)}</td></tr>`).join('')
+    || '<tr><td colspan="8" class="text-center text-slate-400 py-3">Sin desbloqueos registrados.</td></tr>';
+}
+async function autorizarDesbloqueo() {
+  const o = { idDocente: $('ds-doc').value, idPeriodo: $('ds-per').value, grado: $('ds-gra').value, paralelo: $('ds-par').value, asignatura: $('ds-asig').value, vigenteHasta: $('ds-hasta').value, observacion: $('ds-obs').value };
+  await run(async () => { const r = await apiT('apiAutorizarDesbloqueo', o); toast(r.mensaje, 'ok'); $('ds-obs').value = ''; cargarDesbloqueos(); });
+}
+
+// ============================================================================
+// INSTITUCIÓN (RECTORA)
+// ============================================================================
+async function cargarInstitucion() {
+  await run(async () => {
+    const r = await apiT('apiObtenerConfig');
+    $('cfg-body').innerHTML = r.config.map(c => `<div><label class="lbl">${esc(c.parametro.replace(/_/g, ' '))} <span class="font-normal text-slate-500">· ${esc(c.descripcion)}</span></label>
+      <input class="inp cfg" data-p="${esc(c.parametro)}" value="${esc(c.valor)}"></div>`).join('');
+    $('dir-body').innerHTML = r.directivos.map(d => `<div class="border rounded-xl p-2 space-y-1">
+      <div class="font-bold">${esc(d.cargo)} <span class="font-mono text-sky-800">(${esc(d.usuario)})</span></div>
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-1">
+        <input id="dir-${d.rol}" class="inp" value="${esc(d.nombre)}" placeholder="Nombre con título">
+        <input id="dirc-${d.rol}" class="inp font-mono" value="${esc(d.cedula)}" placeholder="Cédula">
+        <input id="dire-${d.rol}" class="inp" value="${esc(d.correo)}" placeholder="Correo"></div>
+      <div class="flex gap-1 justify-end"><button onclick="guardarDirectivo('${d.rol}')" class="btn btn-sec">💾 Guardar</button>
+      <button onclick="resetDirectivo('${d.rol}')" title="Nueva contraseña" class="btn btn-sec">🔑 Nueva clave</button></div></div>`).join('');
+    $('esc-body').innerHTML = `<table class="tabla"><thead><tr><th>Tipo</th><th>Desde</th><th>Hasta</th><th>Código</th><th>Descripción</th></tr></thead><tbody>
+      ${r.escala.map(e => `<tr><td>${esc(e.tipo)}</td><td>${f2(e.desde)}</td><td>${f2(e.hasta)}</td><td class="font-bold">${esc(e.codigo)}</td><td>${esc(e.desc)}</td></tr>`).join('')}</tbody></table>`;
+  });
+}
+async function guardarConfig() {
+  const pares = [...document.querySelectorAll('.cfg')].map(i => ({ parametro: i.dataset.p, valor: i.value }));
+  await run(async () => { const r = await apiT('apiGuardarConfig', pares); toast(r.mensaje, 'ok'); await refrescarCatalogo(); });
+}
+async function guardarDirectivo(rol) { await run(async () => { const r = await apiT('apiGuardarDirectivo', rol, $('dir-' + rol).value, $('dirc-' + rol).value, $('dire-' + rol).value); toast(r.mensaje, 'ok'); }); }
+async function resetDirectivo(rol) {
+  if (!confirm('¿Generar nueva contraseña para este cargo?')) return;
+  await run(async () => { const r = await apiT('apiRestablecerClaveDirectivo', rol); mostrarCred(r.credenciales); });
+}
+
+// ============================================================================
+// INFORMES Y SEGUIMIENTO (DIRECTIVOS)
+// ============================================================================
+async function infCurso() {
+  const f = { jornada: $('inf-jor').value, grado: $('inf-gra').value, paralelo: $('inf-par').value };
+  cargarCortes('inf-corte', f.jornada, $('inf-trim').value, $('inf-corte').value);
+  await run(async () => {
+    S.inf.asigs = await apiT('apiAsignaturasCurso', f);
+    const docs = []; S.inf.asigs.forEach(a => { if (!docs.find(d => d.v === a.idDocente)) docs.push({ v: a.idDocente, t: a.docente }); });
+    $('inf-doc').innerHTML = opts(docs, '', 'Todos los docentes');
+    infAsignaturas();
+    const ests = await apiT('apiListarEstudiantes', f);
+    $('inf-est').innerHTML = opts(ests.map(e => ({ v: e.id, t: e.nombres })), '', 'Todos los estudiantes del curso');
+  });
+}
+function infAsignaturas() {
+  const d = $('inf-doc').value;
+  const l = S.inf.asigs.filter(a => !d || a.idDocente === d).map(a => a.asignatura);
+  $('inf-asig').innerHTML = opts(l, l[0], 'Todas (solo alertas)');
+  if (l.length) $('inf-asig').value = l[0];
+}
+async function genInforme(tipo) {
+  const f = {
+    jornada: $('inf-jor').value, grado: $('inf-gra').value, paralelo: $('inf-par').value, asignatura: $('inf-asig').value,
+    idDocente: $('inf-doc').value, trimestre: Number($('inf-trim').value), corteId: $('inf-corte').value, idEstudiante: $('inf-est').value
+  };
+  await run(async () => mostrarReporte(await apiT('apiReporte', tipo, f)));
+}
+function cumCortes() { cargarCortes('cum-corte', $('cum-jor').value, $('cum-trim').value); }
+async function genSeguimiento() {
+  const f = { jornada: $('seg-jor').value, desde: $('seg-desde').value, hasta: $('seg-hasta').value, grado: $('seg-gra').value, paralelo: $('seg-par').value, caso: $('seg-caso').value };
+  await run(async () => mostrarReporte(await apiT('apiReporte', 'seguimiento', f)));
+}
+async function genCumplimiento() {
+  const f = { jornada: $('cum-jor').value, corteId: $('cum-corte').value };
+  await run(async () => mostrarReporte(await apiT('apiReporte', 'cumplimiento', f)));
+}
+
+// ============================================================================
+// PLANILLA DOCENTE
+// ============================================================================
+function initPlanilla() {
+  const pf = S.cat.perfil;
+  $('pl-jor').innerHTML = opts(pf.jornadas);
+  $('pl-gra').innerHTML = opts(pf.grados);
+  $('pl-par').innerHTML = opts(pf.paralelos);
+  $('pl-trim').innerHTML = opts(TRIMS, trimestreActual());
+  const b = $('pl-bloqueo');
+  b.textContent = S.cat.bloqueo ? '🔒 Bloqueo general de Rectoría' : '🟢 Registro según fechas de corte';
+  b.className = 'px-2.5 py-1 rounded-full font-black text-[11px] ' + (S.cat.bloqueo ? 'bg-red-100 text-red-800' : 'bg-emerald-100 text-emerald-800');
+  plCambio(true);
+}
+function plCtx() {
+  return { jornada: $('pl-jor').value, grado: $('pl-gra').value, paralelo: $('pl-par').value, asignatura: $('pl-asig').value, trimestre: Number($('pl-trim').value), corteId: $('pl-corte').value };
+}
+function plCambio(cargar) {
+  const pf = S.cat.perfil, g = $('pl-gra').value, p = $('pl-par').value;
+  const asigs = pf.asignaturasPorGrado[g] || [], prev = $('pl-asig').value;
+  $('pl-asig').innerHTML = opts(asigs, asigs.includes(prev) ? prev : asigs[0]);
+  $('pl-asig-box').classList.toggle('hidden', esIni(g));
+  cargarCortes('pl-corte', $('pl-jor').value, $('pl-trim').value, $('pl-corte').value);
+  const tutor = pf.esTutor && pf.tutorGrado === g && pf.tutorParalelo === p && pf.jornadas.includes($('pl-jor').value);
+  S.pl.tutor = tutor;
+  $('pl-tutor').classList.toggle('hidden', !tutor);
+  const subs = esIni(g) ? [['ini', '🌱 Destrezas por corte']] : [['form', '📝 Insumos formativos (corte)']];
+  if (!esIni(g) && !esElementalSinSum(g)) subs.push(['sum', '🎯 Evaluación sumativa y mejora (trimestre)']);
+  if (tutor) subs.push(['cond', '⭐ Conducta (tutor)']);
+  if (!subs.find(s => s[0] === S.sub)) S.sub = subs[0][0];
+  $('pl-subs').innerHTML = subs.map(s => `<button onclick="S.sub='${s[0]}';plCambio(true)" class="btn ${S.sub === s[0] ? 'btn-primary' : 'btn-sec'}">${s[1]}</button>`).join('');
+  const inf = [];
+  if (!esIni(g)) inf.push(['alertas', '⚠️ Alertas de bajo desempeño (corte)', 'btn-warn'], ['mensual', '📄 Informe mensual de insumos (corte)', 'btn-primary'], ['trimestral', '📘 Informe trimestral', 'btn-primary']);
+  else inf.push(['ficha_inicial', '🌱 Ficha cualitativa por estudiante', 'btn-ok']);
+  if (tutor && !esIni(g)) inf.push(['boleta', '🧾 Boletas trimestrales del curso', 'btn-ok'], ['anual', '📊 Reporte anual del curso', 'btn-ok']);
+  $('pl-informes').innerHTML = inf.map(i => `<button onclick="informeDocente('${i[0]}')" class="btn ${i[2]}">${i[1]}</button>`).join('');
+  if (cargar) plCargar();
+}
+function banner(d) {
+  const b = $('pl-banner'), ok = d.permiso.editable, extra = d.permisoRef || d.permisoMejora, okX = !ok && extra && extra.editable;
+  const que = d.permisoRef ? 'REFUERZOS' : 'MEJORAS';
+  b.className = 'p-3 rounded-2xl text-xs font-bold border ' + (ok ? 'bg-emerald-50 border-emerald-200 text-emerald-900' : (okX ? 'bg-sky-50 border-sky-200 text-sky-900' : 'bg-amber-50 border-amber-200 text-amber-900'));
+  b.innerHTML = `${ok ? '✏️ EDICIÓN HABILITADA' : (okX ? '🔁 SOLO ' + que : '👁️ SOLO CONSULTA')} · ${esc(d.periodo.nombre)} (${esc(d.periodo.inicio)} a ${esc(d.periodo.cierre)}) · ${esc(okX ? extra.motivo : d.permiso.motivo)}`;
+}
+async function plCargar() {
+  const c = plCtx(); S.pl.ctx = c;
+  $('pl-area').innerHTML = ''; $('pl-acciones').innerHTML = '';
+  await run(async () => {
+    if ((S.sub === 'form' || S.sub === 'ini') && !c.corteId) throw new Error('Rectoría no ha configurado cortes para este trimestre.');
+    if (S.sub === 'form') renderFormativa(await apiT('apiCargarFormativa', c));
+    else if (S.sub === 'sum') renderSumativa(await apiT('apiCargarSumativa', c));
+    else if (S.sub === 'ini') renderInicial(await apiT('apiCargarInicial', c));
+    else if (S.sub === 'cond') renderConducta(await apiT('apiCargarConducta', c));
+  });
+}
+function sinEstudiantes() { $('pl-area').innerHTML = '<p class="text-center text-slate-400 py-6 text-xs">No hay estudiantes matriculados en este curso y paralelo.</p>'; }
+
+// ---- Insumos formativos (9 por corte + refuerzo) ----
+const qf = (i, k, t) => $('pl-area').querySelector(`[data-i="${i}"][data-k="${k}"][data-t="${t}"]`);
+function renderFormativa(d) {
+  S.pl.data = d; banner(d);
+  if (!d.estudiantes.length) return sinEstudiantes();
+  const NI = S.cat.nInsumos, ed = d.permiso.editable, dis = ed ? '' : 'disabled', P = S.cat.params;
+  const edR = ed || (d.permisoRef && d.permisoRef.editable), disR = edR ? '' : 'disabled';
+  S.pl.edR = edR;
+  let th = '<tr><th>N°</th><th class="text-left min-w-[170px]">Estudiante</th>';
+  for (let k = 1; k <= NI; k++) th += `<th>I${k}</th>`;
+  th += '<th>Total insumos</th><th>Prom. inicial</th><th>Prom. con refuerzo</th><th>Equivalencia</th><th>% bajos</th><th>Alerta</th><th>Padres</th></tr>';
+  let rows = '';
+  d.estudiantes.forEach((e, i) => {
+    let cells = '';
+    e.insumos.forEach((it, k) => {
+      const conR = it.r !== '' && it.r != null;
+      cells += `<td class="align-top"><input class="nota" data-i="${i}" data-k="${k}" data-t="f" value="${esc(it.f)}" ${dis} inputmode="decimal">
+        <label class="lblref hidden" data-lbl="${i}-${k}" title="Refuerzo pedagógico (Art. 10)"><input type="checkbox" data-i="${i}" data-k="${k}" data-t="chk" ${conR ? 'checked' : ''} ${disR}>Ref.</label>
+        <input class="nota ref ${conR ? '' : 'hidden'}" data-i="${i}" data-k="${k}" data-t="r" value="${esc(it.r)}" placeholder="R" ${disR} inputmode="decimal"></td>`;
+    });
+    const c = e.com || {};
+    rows += `<tr data-row="${i}"><td>${i + 1}</td><td class="font-semibold">${esc(e.nombres)}</td>${cells}
+      <td id="tot-${i}" class="font-bold"></td><td id="pin-${i}" class="font-bold"></td><td id="pro-${i}" class="font-bold"></td><td id="eq-${i}" class="text-[10px] font-bold text-sky-900"></td><td id="pct-${i}"></td><td id="al-${i}"></td>
+      <td><button type="button" id="bc-${i}" onclick="$('com-${i}').classList.toggle('hidden')" class="btn btn-sec py-1">${c.informado ? '✅' : '📞'}</button></td></tr>
+      <tr id="com-${i}" class="hidden bg-sky-50"><td></td><td colspan="${NI + 8}" style="text-align:left">
+        <div class="flex flex-wrap gap-2 items-end text-xs py-1">
+          <label class="font-bold flex items-center gap-1"><input type="checkbox" id="ci-${i}" ${c.informado ? 'checked' : ''}> Representante informado</label>
+          <div><span class="lbl">Nombre de quien recibió la información</span><input id="cn-${i}" class="inp" value="${esc(c.nombre || e.representante || '')}"></div>
+          <div><span class="lbl">Parentesco</span><select id="cp-${i}" class="inp">${opts(PARENTESCOS, c.parentesco || '', '—')}</select></div>
+          <div><span class="lbl">Fecha</span><input type="date" id="cf-${i}" class="inp" value="${esc(c.fecha || '')}"></div>
+          <div class="flex-1 min-w-[200px]"><span class="lbl">Estrategias de refuerzo comunicadas / acuerdos</span><input id="co-${i}" class="inp" value="${esc(c.obs || '')}"></div>
+        </div></td></tr>`;
+  });
+  $('pl-area').innerHTML = `<div class="text-[11px] text-slate-600 mb-2 bg-slate-50 border rounded-xl p-2 space-y-0.5">
+      <div><b>Proceso del Acuerdo 82-A (Art. 10):</b> 1) se detecta la alerta con las notas iniciales (${esc(critTxt(P))}); 2) informe al representante (📞); 3) aplique el refuerzo; 4) registre la nota del refuerzo.</div>
+      <div>La casilla <b>Ref.</b> aparece solo en insumos menores a ${f2(P.notaMin)}. El insumo reforzado = promedio (inicial + refuerzo) con tope de <b>${f2(P.topeRef)}</b>; nunca baja la nota inicial. Con el corte cerrado se pueden registrar refuerzos hasta el cierre del trimestre.</div></div>
+    <div class="overflow-x-auto border rounded-2xl"><table class="w-full planilla"><thead class="bg-slate-100">${th}</thead><tbody>${rows}</tbody></table></div>`;
+  $('pl-area').oninput = $('pl-area').onchange = ev => {
+    const t = ev.target; if (!t.dataset || t.dataset.i === undefined) return;
+    if (t.dataset.t === 'chk') { const r = qf(t.dataset.i, t.dataset.k, 'r'); r.classList.toggle('hidden', !t.checked); if (!t.checked) r.value = ''; }
+    recalcForm(Number(t.dataset.i));
+  };
+  d.estudiantes.forEach((e, i) => recalcForm(i));
+  $('pl-acciones').innerHTML = (ed ? '<button onclick="guardarFormativa()" class="btn btn-primary">💾 Guardar calificaciones en Drive</button>'
+      : (edR ? '<button onclick="guardarFormativa()" class="btn btn-primary">🔁 Guardar refuerzos en Drive</button>' : ''))
+    + '<button onclick="guardarComunicaciones()" class="btn btn-sec">📞 Guardar comunicación a representantes</button>';
+}
+function recalcForm(i) {
+  const NI = S.cat.nInsumos, P = S.cat.params, ef = [], ini = [];
+  for (let k = 0; k < NI; k++) {
+    const fi = qf(i, k, 'f'), ch = qf(i, k, 'chk'), ri = qf(i, k, 'r');
+    const f = numC(fi.value), bajo = f !== null && !Number.isNaN(f) && f < P.notaMin;
+    // La opción de refuerzo solo existe para insumos bajos
+    $('pl-area').querySelector(`[data-lbl="${i}-${k}"]`).classList.toggle('hidden', !bajo);
+    if (!bajo && ch.checked) { ch.checked = false; ri.value = ''; ri.classList.add('hidden'); }
+    const r = ch.checked ? numC(ri.value) : null;
+    fi.classList.toggle('invalida', Number.isNaN(f)); ri.classList.toggle('invalida', Number.isNaN(r));
+    if (Number.isNaN(f) || Number.isNaN(r) || f === null) continue;
+    ini.push(f); ef.push(efectivoC(f, r));
+    ri.title = r !== null ? 'Insumo reforzado: ' + f2(efectivoC(f, r)) : '';
+  }
+  const avg = a => a.length ? trunc2(a.reduce((x, y) => x + y, 0) / a.length) : '';
+  const tot = ini.length, promIni = avg(ini), prom = avg(ef);
+  const bajos = ini.filter(x => x < P.notaMin).length, pct = tot ? Math.round(bajos * 1000 / tot) / 10 : 0;
+  const al = !tot ? false : (P.criterio === 'INSUMO' ? bajos > 0 : (P.criterio === 'PORCENTAJE' ? pct >= P.pct : promIni > 0 && promIni < P.notaMin));
+  $('tot-' + i).textContent = tot; $('pin-' + i).textContent = f2(promIni); $('pro-' + i).textContent = f2(prom);
+  $('pin-' + i).className = 'font-bold ' + (promIni !== '' && promIni < P.notaMin ? 'text-red-600' : 'text-slate-700');
+  $('pro-' + i).className = 'font-bold ' + (prom !== '' && prom < P.notaMin ? 'text-red-600' : 'text-emerald-700');
+  $('eq-' + i).textContent = equivC(prom, tipoEsc(S.pl.ctx.grado));
+  $('pct-' + i).textContent = tot ? pct + '%' : '';
+  $('al-' + i).innerHTML = !tot ? '' : (al ? '<span class="px-1.5 rounded bg-red-200 text-red-900 font-bold text-[9px]">⚠️ ALERTA</span>' : '<span class="px-1.5 rounded bg-emerald-100 text-emerald-800 font-bold text-[9px]">NORMAL</span>');
+  document.querySelector(`tr[data-row="${i}"]`).classList.toggle('bg-red-50', al);
+  $('bc-' + i).classList.toggle('ring-2', al); $('bc-' + i).classList.toggle('ring-red-400', al);
+}
+async function guardarFormativa() {
+  if ($('pl-area').querySelector('.invalida')) return toast('Corrija las calificaciones marcadas en rojo (rango 0 a 10).', 'err');
+  const NI = S.cat.nInsumos;
+  const filas = S.pl.data.estudiantes.map((e, i) => ({
+    id: e.id, insumos: Array.from({ length: NI }, (_, k) => ({ f: qf(i, k, 'f').value.trim(), r: qf(i, k, 'chk').checked ? qf(i, k, 'r').value.trim() : '' }))
+  }));
+  let ok = false;
+  await run(async () => { const r = await apiT('apiGuardarFormativa', S.pl.ctx, filas); toast(r.mensaje, 'ok'); ok = true; });
+  if (ok) plCargar();
+}
+async function guardarComunicaciones() {
+  const items = [];
+  S.pl.data.estudiantes.forEach((e, i) => {
+    const inf = $('ci-' + i).checked, par = $('cp-' + i).value, fec = $('cf-' + i).value, obs = $('co-' + i).value.trim();
+    if (inf || e.com || par || fec || obs) items.push({ id: e.id, informado: inf, nombre: $('cn-' + i).value, parentesco: par, fecha: fec, obs });
+  });
+  if (!items.length) return toast('No hay comunicaciones para guardar.', 'err');
+  let ok = false;
+  await run(async () => { const r = await apiT('apiGuardarComunicaciones', S.pl.ctx, items); toast(r.mensaje, 'ok'); ok = true; });
+  if (ok) plCargar();
+}
+
+// ---- Evaluación sumativa trimestral (con mejora) ----
+function renderSumativa(d) {
+  S.pl.data = d; banner(d);
+  if (!d.estudiantes.length) return sinEstudiantes();
+  const ed = d.permiso.editable, dis = ed ? '' : 'disabled', P = S.cat.params;
+  const edM = d.conMejora && (ed || (d.permisoMejora && d.permisoMejora.editable)), disM = edM ? '' : 'disabled';
+  S.pl.edM = edM;
+  const usoTxt = u => u ? `Usadas en el año → directas: ${u.dirAsig}/${P.maxDirAsig} asig. · ${u.dirTot}/${P.maxDirTotal} total; con refuerzo: ${u.refAsig}/${P.maxRefAsig} asig. · ${u.refTot}/${P.maxRefTotal} total` : '';
+  const rows = d.estudiantes.map((e, i) => `<tr data-row="${i}"><td>${i + 1}</td><td class="font-semibold">${esc(e.nombres)}</td>
+    <td>${e.total}</td><td class="font-bold">${f2(e.promF)}</td><td id="spf-${i}"></td>
+    <td><input class="nota" id="ss-${i}" value="${esc(e.sumativa)}" ${dis}></td>
+    <td title="${esc(usoTxt(e.uso))}"><label class="lblref hidden" id="sml-${i}"><input type="checkbox" id="sm-${i}" ${e.aplicaMejora ? 'checked' : ''} ${disM}><span id="smt-${i}">Mejora</span></label>
+        <input class="nota ref ${e.aplicaMejora ? '' : 'hidden'}" id="sv-${i}" value="${esc(e.mejora)}" ${disM} placeholder="Nueva">
+        <span id="smn-${i}" class="text-[9px] text-slate-400">—</span></td>
+    <td id="sef-${i}"></td><td id="sps-${i}"></td><td id="snt-${i}" class="font-black"></td><td id="seq-${i}" class="text-[10px] font-bold text-sky-900"></td></tr>`).join('');
+  $('pl-area').innerHTML = `<div class="text-[11px] text-slate-600 mb-2 bg-slate-50 border rounded-xl p-2 space-y-0.5">
+      <div>Nota trimestral = ${P.pf}% promedio formativo del trimestre + ${P.ps}% evaluación sumativa (Art. 36). Truncamiento a 2 decimales (Art. 8).</div>
+      <div><b>Mejora de la sumativa (Art. 11-13)</b>${d.conMejora ? '' : ' — no aplica en este subnivel'}: sumativa mayor a 7,00 y menor a 9,00 → <b>mejora directa</b> (se promedia, máx. ${f2(P.topeMejDir)}; ${P.maxDirAsig} por asignatura y ${P.maxDirTotal} en el año). Sumativa de 0,01 a 6,99 → <b>mejora con refuerzo</b> (se promedia, máx. ${f2(P.topeMejRef)}; ${P.maxRefAsig} por asignatura y ${P.maxRefTotal} en el año). Con 7,00 exacto o 9,00 o más no hay mejora. La mejora nunca baja la nota inicial.</div></div>
+    <div class="overflow-x-auto border rounded-2xl"><table class="w-full planilla"><thead class="bg-slate-100"><tr>
+      <th>N°</th><th class="text-left">Estudiante</th><th>Insumos del trimestre</th><th>Prom. formativo</th><th>Formativo (${P.pf}%)</th><th>Sumativa</th><th>Mejora</th><th>Sumativa efectiva</th><th>Sumativo (${P.ps}%)</th><th>Nota trimestral</th><th>Equivalencia</th>
+    </tr></thead><tbody>${rows}</tbody></table></div>`;
+  $('pl-area').oninput = $('pl-area').onchange = ev => {
+    const m = String(ev.target.id).match(/^s[smv]-(\d+)$/); if (!m) return;
+    const i = Number(m[1]);
+    if (ev.target.id.startsWith('sm-')) { $('sv-' + i).classList.toggle('hidden', !ev.target.checked); if (!ev.target.checked) $('sv-' + i).value = ''; }
+    recalcSum(i);
+  };
+  d.estudiantes.forEach((e, i) => recalcSum(i));
+  $('pl-acciones').innerHTML = ed ? '<button onclick="guardarSumativa()" class="btn btn-primary">💾 Guardar evaluación sumativa en Drive</button>'
+    : (edM ? '<button onclick="guardarSumativa()" class="btn btn-primary">🔁 Guardar mejoras en Drive</button>' : '');
+}
+function recalcSum(i) {
+  const e = S.pl.data.estudiantes[i], s = numC($('ss-' + i).value), ap = $('sm-' + i).checked, m = ap ? numC($('sv-' + i).value) : null;
+  $('ss-' + i).classList.toggle('invalida', Number.isNaN(s)); $('sv-' + i).classList.toggle('invalida', Number.isNaN(m));
+  if (Number.isNaN(s) || Number.isNaN(m)) return;
+  const c = calcSumC(e.promF === '' ? '' : Number(e.promF), s, ap, m);
+  const tipo = S.pl.data.conMejora ? c.tipo : '';
+  $('sml-' + i).classList.toggle('hidden', !tipo); $('smn-' + i).classList.toggle('hidden', !!tipo);
+  if (!tipo && $('sm-' + i).checked) { $('sm-' + i).checked = false; $('sv-' + i).value = ''; $('sv-' + i).classList.add('hidden'); }
+  $('smt-' + i).textContent = tipo === 'DIRECTA' ? 'Mejora directa (≤ ' + f2(S.cat.params.topeMejDir) + ')' : 'Mejora con refuerzo (≤ ' + f2(S.cat.params.topeMejRef) + ')';
+  $('spf-' + i).textContent = f2(c.pF); $('sef-' + i).textContent = f2(c.sumEf); $('sps-' + i).textContent = f2(c.pS);
+  $('snt-' + i).textContent = f2(c.nota); $('snt-' + i).className = 'font-black ' + (c.nota !== '' && c.nota < S.cat.params.notaMin ? 'text-red-600' : 'text-emerald-700');
+  $('seq-' + i).textContent = equivC(c.nota, tipoEsc(S.pl.ctx.grado));
+}
+async function guardarSumativa() {
+  if ($('pl-area').querySelector('.invalida')) return toast('Corrija los valores marcados en rojo (0 a 10).', 'err');
+  const filas = S.pl.data.estudiantes.map((e, i) => ({ id: e.id, sumativa: $('ss-' + i).value.trim(), aplicaMejora: $('sm-' + i).checked, mejora: $('sv-' + i).value.trim() }));
+  let ok = false;
+  await run(async () => { const r = await apiT('apiGuardarSumativa', S.pl.ctx, filas); toast(r.mensaje, 'ok'); ok = true; });
+  if (ok) plCargar();
+}
+
+// ---- Inicial y Preparatoria (hasta 8 destrezas por corte) ----
+function renderInicial(d) {
+  S.pl.data = d; banner(d);
+  const ND = S.cat.nDestrezas, ed = d.permiso.editable, dis = ed ? '' : 'disabled';
+  const descs = d.destrezas.map((x, k) => `<div><label class="lbl">Destreza / competencia ${k + 1}</label><input id="dd-${k}" class="inp" value="${esc(x)}" ${dis} placeholder="Describa la destreza trabajada"></div>`).join('');
+  if (!d.estudiantes.length) { $('pl-area').innerHTML = ''; return sinEstudiantes(); }
+  let th = '<tr><th>N°</th><th class="text-left">Estudiante</th>'; for (let k = 1; k <= ND; k++) th += `<th>D${k}</th>`; th += '<th>Estado final</th><th>Observación pedagógica</th></tr>';
+  const rows = d.estudiantes.map((e, i) => {
+    let c = ''; for (let k = 0; k < ND; k++) {
+      const v = e.valores[k], lista = LETRAS.slice().reverse().concat(['NE']);
+      if (v && !lista.includes(v)) lista.push(v); // conserva valores antiguos (I/EP/A)
+      c += `<td><select class="border rounded p-1 text-[11px] font-bold" data-i="${i}" data-k="${k}" ${dis}>${opts(lista, v, '—')}</select></td>`;
+    }
+    return `<tr><td>${i + 1}</td><td class="font-semibold">${esc(e.nombres)}</td>${c}<td id="ef-${i}" class="font-bold text-emerald-800"></td><td><input id="io-${i}" class="inp" value="${esc(e.obs)}" ${dis}></td></tr>`;
+  }).join('');
+  $('pl-area').innerHTML = `<div class="bg-emerald-50 border border-emerald-200 rounded-2xl p-3 space-y-2">
+      <p class="text-[11px] text-emerald-900 font-bold">Escala del Acuerdo 82-A (Art. 7 y 35): A+ A- B+ B- = destreza alcanzada · C+ C- = en proceso de desarrollo · D+ D- E+ E- = iniciada · NE = no estudiada en el periodo. Registre las destrezas trabajadas en este corte (máximo ${ND}).${nivelG(S.pl.ctx.grado) === 'Preparatoria' ? ' En Preparatoria la alerta temprana se activa de E- a C+ (Art. 10).' : ''}</p>
+      <div class="grid grid-cols-1 sm:grid-cols-4 gap-2">${descs}</div></div>
+    <div class="overflow-x-auto border rounded-2xl mt-3"><table class="w-full planilla"><thead class="bg-slate-100">${th}</thead><tbody>${rows}</tbody></table></div>`;
+  $('pl-area').onchange = $('pl-area').oninput = ev => { if (ev.target.dataset && ev.target.dataset.i !== undefined) recalcIni(Number(ev.target.dataset.i)); };
+  d.estudiantes.forEach((e, i) => recalcIni(i));
+  $('pl-acciones').innerHTML = ed ? '<button onclick="guardarInicial()" class="btn btn-ok">💾 Guardar destrezas en Drive</button>' : '';
+}
+function recalcIni(i) {
+  const v = [...$('pl-area').querySelectorAll(`select[data-i="${i}"]`)].map(s => s.value);
+  const e = estadoIniC(v), al = e && nivelG(S.pl.ctx.grado) === 'Preparatoria' && rangoL(e) <= 6;
+  $('ef-' + i).innerHTML = e ? `${esc(e)} – ${esc(bandaL(e))}${al ? ' <span class="px-1.5 rounded bg-red-200 text-red-900 text-[9px]">⚠️ ALERTA</span>' : ''}` : '';
+}
+async function guardarInicial() {
+  const ND = S.cat.nDestrezas;
+  const desc = Array.from({ length: ND }, (_, k) => $('dd-' + k).value.trim());
+  const filas = S.pl.data.estudiantes.map((e, i) => ({ id: e.id, valores: [...$('pl-area').querySelectorAll(`select[data-i="${i}"]`)].map(s => s.value), obs: $('io-' + i).value }));
+  let ok = false;
+  await run(async () => { const r = await apiT('apiGuardarInicial', S.pl.ctx, desc, filas); toast(r.mensaje, 'ok'); ok = true; });
+  if (ok) plCargar();
+}
+
+// ---- Conducta (solo tutor del curso) ----
+function renderConducta(d) {
+  S.pl.data = d; banner(d);
+  if (!d.estudiantes.length) return sinEstudiantes();
+  const dis = d.permiso.editable ? '' : 'disabled';
+  $('pl-area').innerHTML = `<div class="overflow-x-auto border rounded-2xl"><table class="w-full planilla"><thead class="bg-purple-50"><tr><th>N°</th><th class="text-left">Estudiante</th><th>Evaluación comportamental</th><th>Observación</th></tr></thead><tbody>
+    ${d.estudiantes.map((e, i) => `<tr><td>${i + 1}</td><td class="font-semibold">${esc(e.nombres)}</td>
+      <td><select id="kc-${i}" class="inp" ${dis}>${opts(CONDUCTA, e.conducta, '—')}</select></td>
+      <td><input id="ko-${i}" class="inp" value="${esc(e.obs)}" ${dis}></td></tr>`).join('')}</tbody></table></div>`;
+  $('pl-acciones').innerHTML = d.permiso.editable ? '<button onclick="guardarConducta()" class="btn bg-purple-800 text-white">💾 Guardar conducta en Drive</button>' : '';
+}
+async function guardarConducta() {
+  const filas = S.pl.data.estudiantes.map((e, i) => ({ id: e.id, conducta: $('kc-' + i).value, obs: $('ko-' + i).value }));
+  let ok = false;
+  await run(async () => { const r = await apiT('apiGuardarConducta', S.pl.ctx, filas); toast(r.mensaje, 'ok'); ok = true; });
+  if (ok) plCargar();
+}
+
+async function informeDocente(tipo) {
+  const c = plCtx();
+  if (esIni(c.grado)) c.asignatura = 'Destrezas (Docente de Aula)';
+  await run(async () => mostrarReporte(await apiT('apiReporte', tipo, c)));
+}
+
+// ============================================================================
+// RENDER DE INFORMES IMPRIMIBLES
+// ============================================================================
+function encabezado(r, titulo, sub) {
+  const i = r.inst;
+  return `<div class="enc"><div class="inst">${esc(i.institucion)}</div>
+    <div>Código AMIE: <b>${esc(i.amie)}</b> · ${esc(i.ciudad)} · Correo: ${esc(i.correo) || '______________________'} · Teléfono: ${esc(i.telefono) || '______________'}</div>
+    <div>Año lectivo ${esc(i.periodo)} · Régimen ${esc(i.regimen)}</div>
+    <div class="tit">${titulo}</div>${sub ? `<div>${sub}</div>` : ''}</div>`;
+}
+function ficha(pares) { return `<div class="ficha">${pares.filter(p => p).map(p => `<div><b>${esc(p[0])}:</b> ${esc(p[1])}</div>`).join('')}</div>`; }
+function firmas(lista) {
+  return `<div class="firmas">${lista.map(f => `<div class="firma"><b>${esc(f[0]) || '&nbsp;'}</b><small>${esc(f[1])}</small>${f[2] ? `<small><b>${esc(f[2])}</b></small>` : ''}</div>`).join('')}</div>`;
+}
+function norma(r) {
+  const i = r.inst;
+  return `<div class="norma">Base normativa: Acuerdo Ministerial Nro. ${esc(i.acuerdo)}${i.fechaAcuerdo ? ' (' + esc(i.fechaAcuerdo) + ')' : ''}. Media, Superior y Bachillerato: formativa ${r.params.pf}% y sumativa ${r.params.ps}% (Art. 36); Elemental: escala cualitativa A+ a E- (Art. 7 y 35). Alerta temprana: ${esc(critTxt(r.params))} (Art. 10); refuerzo promediado hasta ${f2(r.params.topeRef)}; mejora de sumativas según Art. 11-13; promedios con dos decimales truncados (Art. 8). Emitido el ${esc(r.emitido)} por ${esc(r.emisor)}.</div>`;
+}
+function tabla(head, filas) { return `<table><thead><tr>${head.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>${filas.join('') || `<tr><td colspan="${head.length}" class="c">Sin registros.</td></tr>`}</tbody></table>`; }
+const vice = r => [r.vicerrector, 'Vicerrector/a – Jornada ' + r.filtros.jornada, 'APROBADO'];
+
+function mostrarReporte(r) {
+  const F = r.filtros, curso = `${F.grado || ''} - Paralelo ${F.paralelo || ''}`;
+  let h = '', orient = 'portrait';
+  if (r.tipo === 'alertas' || r.tipo === 'mensual') {
+    const esM = r.tipo === 'mensual';
+    orient = esM ? 'landscape' : 'portrait';
+    const datos = ficha([['Jornada', F.jornada], ['Curso', curso], ['Asignatura', F.asignatura || 'Todas'], ['Docente', r.docente],
+      ['Corte', `${r.periodo.nombre} (${r.periodo.inicio} a ${r.periodo.cierre})`], ['Resumen', `${r.resumen.estudiantes} estudiantes · ${r.resumen.registrados} con insumos · ${r.resumen.enAlerta} en alerta`]]);
+    let filas;
+    if (esM) {
+      filas = r.filas.map((x, n) => `<tr class="${x.alerta ? 'alerta' : ''}"><td class="c">${n + 1}</td><td>${esc(x.nombres)}</td>${Array.from({ length: 9 }, (_, k) => {
+        const it = x.insumos[k]; if (!it || it.f === '') return '<td class="c"></td>';
+        return `<td class="c">${f2(it.f)}${it.r !== '' ? `<br><small>R ${f2(it.r)}</small>` : ''}</td>`;
+      }).join('')}<td class="c b">${x.total}</td><td class="c">${f2(x.promIni)}</td><td class="c b">${f2(x.prom)}</td><td>${esc(x.equiv)}</td><td class="c">${x.pct !== '' ? x.pct + '%' : ''}</td><td class="c b">${x.alerta ? 'SÍ' : (x.total ? 'NO' : '—')}</td></tr>`);
+      h = encabezado(r, 'Informe mensual de insumos formativos', 'Registro de insumos y refuerzos dentro de las fechas del corte') + datos +
+        tabla(['N°', 'Estudiante', 'I1', 'I2', 'I3', 'I4', 'I5', 'I6', 'I7', 'I8', 'I9', 'Total insumos', 'Prom. inicial', 'Prom. con refuerzo', 'Equivalencia cualitativa', '% bajos', 'Alerta'], filas);
+    } else {
+      filas = r.filas.map((x, n) => `<tr><td class="c">${n + 1}</td><td>${esc(x.cedula)}</td><td>${esc(x.nombres)}</td><td>${esc(x.asignatura)}</td><td class="c">${x.total}</td><td class="c b">${f2(x.promIni)}</td><td class="c">${x.conRef}</td><td class="c b">${f2(x.prom)}</td><td>${esc(x.equiv)}</td><td class="c">${x.pct}%</td><td>${esc(x.com)}</td></tr>`);
+      h = encabezado(r, 'Informe de alertas tempranas de bajo desempeño', 'Criterio de detección (Art. 10): ' + critTxt(r.params)) + datos +
+        tabla(['N°', 'Cédula', 'Estudiante', 'Asignatura', 'Total insumos', 'Prom. inicial', 'Insumos con refuerzo', 'Prom. con refuerzo', 'Equivalencia cualitativa', '% insumos bajos', 'Comunicación al representante'], filas);
+    }
+    h += firmas([[r.docente, 'Docente de asignatura', 'REALIZADO'], vice(r)]) + norma(r);
+  } else if (r.tipo === 'trimestral') {
+    orient = 'landscape';
+    const filas = r.filas.map((x, n) => `<tr class="${x.nota !== '' && x.nota !== undefined && x.nota < r.params.notaMin ? 'alerta' : ''}"><td class="c">${n + 1}</td><td>${esc(x.nombres)}</td><td class="c">${x.total || 0}</td><td class="c">${f2(x.promF)}</td><td class="c">${f2(x.pF)}</td><td class="c">${f2(x.sum)}</td><td class="c">${f2(x.mejora)}${x.tipoMejora ? `<br><small>${x.tipoMejora === 'DIRECTA' ? 'directa' : 'con refuerzo'}</small>` : ''}</td><td class="c">${f2(x.sumEf)}</td><td class="c">${f2(x.pS)}</td><td class="c b">${f2(x.nota)}</td><td>${esc(x.equiv || '')}</td></tr>`);
+    h = encabezado(r, `Informe trimestral de calificaciones – ${F.trimestre}° trimestre`, 'Resultados cuantitativos y su equivalencia cualitativa') +
+      ficha([['Jornada', F.jornada], ['Curso', curso], ['Asignatura', F.asignatura], ['Docente', r.docente], ['Cortes incluidos', r.cortes.map(c => c.nombre).join(', ')]]) +
+      tabla(['N°', 'Estudiante', 'Total insumos', 'Prom. formativo', `Formativo ${r.params.pf}%`, 'Sumativa', 'Mejora', 'Sumativa efectiva', `Sumativo ${r.params.ps}%`, 'Nota trimestral', 'Equivalencia cualitativa'], filas) +
+      firmas([[r.docente, 'Docente de asignatura', 'REALIZADO'], vice(r)]) + norma(r);
+  } else if (r.tipo === 'boleta') {
+    h = r.boletas.map(b => {
+      const filas = b.materias.map(m => r.cualitativa
+        ? `<tr><td>${esc(m.asignatura)}</td><td class="b">${esc(m.equiv || 'Sin registro')}</td></tr>`
+        : m.cualitativa ? `<tr><td>${esc(m.asignatura)}</td><td colspan="6"><b>${esc(m.equiv || 'Sin registro')}</b> <small>(evaluación cualitativa, Art. 9)</small></td></tr>`
+        : `<tr><td>${esc(m.asignatura)}</td><td class="c">${f2(m.promF)}</td><td class="c">${f2(m.pF)}</td><td class="c">${f2(m.sumEf)}</td><td class="c">${f2(m.pS)}</td><td class="c b">${f2(m.nota)}</td><td>${esc(m.equiv || '')}</td></tr>`);
+      if (!r.cualitativa) filas.push(`<tr><td class="b" colspan="5">PROMEDIO GENERAL</td><td class="c b">${f2(b.promedio)}</td><td>${esc(equivC(b.promedio, 'CUANTITATIVA'))}</td></tr>`);
+      const cond = CONDUCTA.find(c => c.v === b.conducta);
+      return `<div class="pagina">${encabezado(r, `Boleta de calificaciones – ${F.trimestre}° trimestre`, r.cualitativa ? 'Informe cualitativo (hasta 4° año de EGB)' : 'Calificación cuantitativa y su correspondencia cualitativa')}
+        ${ficha([['Estudiante', b.nombres], ['Cédula', b.cedula], ['Curso', curso], ['Jornada', F.jornada], ['Docente tutor/a', r.tutor]])}
+        ${tabla(r.cualitativa ? ['Asignatura', 'Valoración cualitativa'] : ['Asignatura', 'Prom. formativo', `Formativo ${r.params.pf}%`, 'Sumativa', `Sumativo ${r.params.ps}%`, 'Nota trimestral', 'Equivalencia cualitativa'], filas)}
+        <table><tr><th style="width:30%">Evaluación comportamental</th><td>${esc(cond ? cond.t : 'Sin registro')}${b.conductaObs ? ' · ' + esc(b.conductaObs) : ''}</td></tr></table>
+        ${firmas([[r.inst.rectora, 'Rectora'], [r.tutor, 'Docente tutor/a']])}${norma(r)}</div>`;
+    }).join('') || '<p>No hay estudiantes.</p>';
+  } else if (r.tipo === 'anual') {
+    orient = 'landscape';
+    h = r.boletas.map(b => {
+      const filas = b.materias.map(m => r.cualitativa
+        ? `<tr><td>${esc(m.asignatura)}</td>${m.t.map(x => `<td class="c">${esc(x === '' ? '—' : equivC(x, 'ELEMENTAL').split(' – ')[0])}</td>`).join('')}<td class="b">${esc(m.equiv || 'Pendiente')}</td></tr>`
+        : `<tr class="${m.alcanza === 'NO' && !m.cualitativa ? 'alerta' : ''}"><td>${esc(m.asignatura)}</td>${m.t.map(x => `<td class="c">${f2(x) || '—'}</td>`).join('')}<td class="c b">${f2(m.prom)}</td><td>${esc(m.equiv)}</td><td class="c">${esc(m.alcanza)}</td><td>${esc(m.condicion || '')}</td></tr>`);
+      return `<div class="pagina">${encabezado(r, 'Reporte anual de calificaciones', '1°, 2° y 3° trimestre')}
+        ${ficha([['Estudiante', b.nombres], ['Cédula', b.cedula], ['Curso', curso], ['Jornada', F.jornada], ['Docente tutor/a', r.tutor]])}
+        ${tabla(r.cualitativa ? ['Asignatura', '1T', '2T', '3T', 'Valoración anual (promedio simple)'] : ['Asignatura', '1T', '2T', '3T', 'Promedio anual', 'Equivalencia cualitativa', `Alcanza ${f2(r.params.aprob)}`, 'Condición (Art. 20-27)'], filas)}
+        <p style="font-size:9.5px;margin-top:4px">${r.cualitativa ? 'Promoción automática en Elemental (Art. 20).' : 'Promedio final = promedio simple de los tres trimestres (Art. 36). Promoción directa con 7,00 o más (Art. 21); supletorio de 4,01 a 6,99 (Art. 23); la junta de docentes resuelve los casos de Básica Media (Art. 27).'}</p>
+        ${firmas([[r.inst.rectora, 'Rectora'], [r.tutor, 'Docente tutor/a']])}${norma(r)}</div>`;
+    }).join('') || '<p>No hay estudiantes.</p>';
+  } else if (r.tipo === 'ficha_inicial') {
+    h = r.fichas.map(fi => {
+      const bloques = fi.cortes.map(c => `<table><thead><tr><th colspan="3" style="text-align:left">${esc(c.nombre)}</th></tr><tr><th style="width:6%">N°</th><th>Destreza / competencia trabajada</th><th style="width:22%">Valoración</th></tr></thead><tbody>
+        ${c.items.map((it, n) => `<tr><td class="c">${n + 1}</td><td>${esc(it.desc)}</td><td class="c b">${it.val ? esc(it.val + ' – ' + (bandaL(it.val) || INI_TXT[it.val] || '')) : '—'}</td></tr>`).join('') || '<tr><td colspan="3" class="c">Sin destrezas registradas.</td></tr>'}
+        <tr><td colspan="2" class="b">Estado general del corte</td><td class="c b">${c.estado ? esc(c.estado + ' – ' + (bandaL(c.estado) || INI_TXT[c.estado] || '')) : '—'}</td></tr>
+        ${c.obs ? `<tr><td colspan="3"><b>Observación:</b> ${esc(c.obs)}</td></tr>` : ''}</tbody></table>`).join('');
+      return `<div class="pagina">${encabezado(r, `Informe cualitativo de desarrollo – ${F.trimestre}° trimestre`, 'Educación Inicial y Preparatoria')}
+        ${ficha([['Estudiante', fi.nombres], ['Cédula', fi.cedula], ['Curso', curso], ['Jornada', F.jornada], ['Docente tutor/a', r.tutor]])}
+        ${bloques}<p style="font-size:10px;margin-top:6px"><b>Escala (Art. 7 y 35):</b> A+ A- B+ B- destreza alcanzada · C+ C- en proceso de desarrollo · D+ D- E+ E- iniciada · NE no estudiada en el periodo. Promoción automática (Art. 20).</p>
+        ${firmas([[r.inst.rectora, 'Rectora'], [r.tutor, 'Docente tutor/a']])}${norma(r)}</div>`;
+    }).join('') || '<p>No hay estudiantes.</p>';
+  } else if (r.tipo === 'seguimiento') {
+    orient = 'landscape';
+    const filas = r.filas.map((x, n) => `<tr><td class="c">${n + 1}</td><td>${esc(x.nombres)}</td><td>${esc(x.cedula)}</td><td>${esc(x.curso)}</td><td>${esc(x.jornada)}</td><td class="b">${esc(x.causas)}</td><td>${esc(x.detalle)}</td><td class="c">${x.comunicaciones}</td></tr>`);
+    h = encabezado(r, 'Informe de seguimiento de alertas, repetidores y vulnerabilidad', `Desde ${r.desde} hasta ${r.hasta}`) +
+      ficha([['Jornada', F.jornada === 'Ambas' ? 'Todas' : F.jornada], ['Caso', r.caso], ['Cortes analizados', r.cortes.map(c => c.nombre).join(', ') || 'Ninguno en el rango'], ['Total de casos', r.filas.length]]) +
+      tabla(['N°', 'Estudiante', 'Cédula', 'Curso', 'Jornada', 'Causa(s)', 'Asignaturas en alerta (corte: promedio)', 'Comunicaciones a padres'], filas) +
+      firmas(r.vicerrector ? [[r.vicerrector, 'Vicerrectorado – Jornada ' + F.jornada, 'ELABORADO'], [r.inst.rectora, 'Rectora', 'REVISADO']] : [[r.inst.rectora, 'Rectora']]) + norma(r);
+  } else if (r.tipo === 'cumplimiento') {
+    orient = 'landscape';
+    const filas = r.filas.map((x, n) => `<tr class="${x.estado === 'PENDIENTE' ? 'alerta' : ''}"><td class="c">${n + 1}</td><td>${esc(x.docente)}</td><td>${esc(x.curso)}</td><td>${esc(x.asignatura)}</td><td class="c">${x.estudiantes}</td><td class="c">${x.registrados}</td><td>${esc(x.ultima)}</td><td class="c b">${esc(x.estado)}</td></tr>`);
+    h = encabezado(r, 'Informe de registro de calificaciones por parte de los docentes', `${r.periodo.nombre} (${r.periodo.inicio} a ${r.periodo.cierre})`) +
+      ficha([['Jornada', F.jornada], ['Pendientes', r.filas.filter(x => x.estado === 'PENDIENTE').length + ' de ' + r.filas.length]]) +
+      tabla(['N°', 'Docente', 'Curso', 'Asignatura', 'Estudiantes', 'Con registro', 'Último registro', 'Estado'], filas) +
+      firmas([[r.vicerrector || r.inst.rectora, r.vicerrector ? 'Vicerrector/a – Jornada ' + F.jornada : 'Rectora']]) + norma(r);
+  } else if (r.tipo === 'nomina') {
+    orient = 'landscape';
+    const filas = r.filas.map((e, n) => `<tr><td class="c">${n + 1}</td><td>${esc(e.cedula)}</td><td>${esc(e.nombres)}</td><td>${esc(e.jornada)}</td><td>${esc(e.grado)} - ${esc(e.paralelo)}</td><td class="c">${esc(e.repetidor)}</td><td>${esc(e.origen)}</td><td>${esc(e.nee)}</td><td class="c">${esc(e.nap)}</td><td>${esc(e.representante)}</td><td>${esc(e.telefono)}</td></tr>`);
+    h = encabezado(r, 'Nómina de estudiantes matriculados', `Jornada: ${F.jornada === 'Ambas' || !F.jornada ? 'Todas' : F.jornada} · Curso: ${F.grado || 'Todos'} · Paralelo: ${F.paralelo || 'Todos'}`) +
+      tabla(['N°', 'Cédula', 'Apellidos y nombres', 'Jornada', 'Curso', 'Repetidor', 'Origen', 'NEE', 'NAP', 'Representante', 'Teléfono'], filas) +
+      firmas([[r.inst.rectora, 'Rectora'], ['', 'Secretaría']]) + norma(r);
+  }
+  $('page-size').textContent = `@page{size:A4 ${orient};margin:10mm}`;
+  $('print-area').innerHTML = h;
+  $('v-app').classList.add('hidden'); $('v-print').classList.remove('hidden');
+  window.scrollTo(0, 0);
+}
+function cerrarImpresion() { $('v-print').classList.add('hidden'); $('v-app').classList.remove('hidden'); }
+</script>
+</body>
+</html>
