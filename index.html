@@ -276,12 +276,13 @@
 
     <!-- MALLA CURRICULAR Y DISTRIBUTIVO (Rectorado y Vicerrectorado) -->
     <div id="tab-malla" class="tab hidden card space-y-3">
-      <div><h3 class="font-black text-sm">📋 Malla curricular y distributivo docente</h3>
+      <div><h3 class="font-black text-sm">📋 Distributivo docente y malla curricular</h3>
         <p class="text-[11px] text-slate-500">Horas = periodos pedagógicos mínimos sugeridos a la semana (referencia del Ministerio). El distributivo actualiza solo la ficha de cada docente: años, paralelos, asignaturas, distributivo detallado y carga horaria.</p></div>
-      <div class="flex flex-wrap gap-2"><button id="mlb-malla" onclick="verMalla('malla')" class="btn btn-sec">📚 Malla curricular</button>
-        <button id="mlb-curso" onclick="verMalla('curso')" class="btn btn-sec">🏫 Distributivo por curso</button>
-        <button id="mlb-docente" onclick="verMalla('docente')" class="btn btn-sec">👨‍🏫 Distributivo por docente</button>
-        <button onclick="genDistributivo()" class="btn btn-primary">🖨️ Imprimir distributivo general</button></div>
+      <div class="flex flex-wrap gap-2"><button id="mlb-docente" onclick="verMalla('docente')" class="btn btn-sec">👨‍🏫 Asignar a un docente</button>
+        <button id="mlb-curso" onclick="verMalla('curso')" class="btn btn-sec">🏫 Revisión por curso</button>
+        <button id="mlb-planta" onclick="verMalla('planta')" class="btn btn-sec">🖨️ Planta docente</button>
+        <button id="mlb-oferta" onclick="verMalla('oferta')" class="btn btn-sec">🗂️ Cursos por jornada</button>
+        <button id="mlb-malla" onclick="verMalla('malla')" class="btn btn-sec">📚 Malla curricular</button></div>
       <div id="mlv-malla" class="hidden space-y-2">
         <div class="flex flex-wrap items-end gap-2"><div><label class="lbl">Año de básica / curso</label><select id="ml-gra" class="inp" onchange="cargarMalla()"></select></div><div id="ml-tot" class="text-[11px]"></div></div>
         <div id="ml-area"></div>
@@ -303,9 +304,24 @@
         <div id="dc-area"></div>
       </div>
       <div id="mlv-docente" class="hidden space-y-2">
-        <div class="flex flex-wrap items-end gap-2"><div class="min-w-[260px]"><label class="lbl">Docente</label><select id="dd-doc" class="inp" onchange="cargarDistDocente()"></select></div>
-          <button onclick="respaldarDocente($('dd-doc').value)" class="btn btn-sec">💾 Respaldar información del docente</button></div>
+        <div class="grid grid-cols-2 sm:grid-cols-5 gap-2 bg-sky-50 p-3 rounded-2xl border border-sky-100">
+          <div class="col-span-2"><label class="lbl">1. Docente</label><select id="dd-doc" class="inp" onchange="asgDocente()"></select></div>
+          <div><label class="lbl">2. Jornada</label><select id="asg-jor" class="inp" onchange="asgCursos()"></select></div>
+          <div><label class="lbl">Año de básica / curso</label><select id="asg-gra" class="inp" onchange="asgParalelos()"></select></div>
+          <div><label class="lbl">Paralelo</label><select id="asg-par" class="inp" onchange="asgCargar()"></select></div>
+        </div>
+        <div id="asg-area"></div>
         <div id="dd-area"></div>
+      </div>
+      <div id="mlv-oferta" class="hidden space-y-2">
+        <p class="text-[11px] text-slate-600">Marque los años de básica / cursos y paralelos que existen en cada jornada. Solo esos aparecerán al asignar, y el sistema avisa si se intenta asignar en un curso que no existe.</p>
+        <div id="of-area" class="grid grid-cols-1 lg:grid-cols-2 gap-3"></div>
+      </div>
+      <div id="mlv-planta" class="hidden space-y-2">
+        <div class="flex flex-wrap items-end gap-2"><div><label class="lbl">Jornada</label><select id="pt-jor" class="inp"></select></div>
+          <button onclick="genPlanta()" class="btn btn-primary">🖨️ Ver / imprimir planta docente</button>
+          <button onclick="descargarPlanta()" class="btn btn-ok">⬇️ Descargar en Excel</button></div>
+        <p class="text-[11px] text-slate-500">Docentes, cédula, tutoría, asignaturas por curso con sus horas, otras actividades y carga horaria total.</p>
       </div>
     </div>
 
@@ -628,13 +644,15 @@
       <div><label class="lbl">Cédula</label><input id="md-ced" class="inp font-mono" inputmode="numeric"></div>
       <div><label class="lbl">Correo (para recuperar contraseña)</label><input id="md-cor" class="inp"></div>
       <div><label class="lbl">Jornada *</label><select id="md-jor" class="inp"><option value="Matutina">Matutina</option><option value="Vespertina">Vespertina</option><option value="Ambas">Matutina y Vespertina</option></select></div>
-      <div><label class="lbl">Carga horaria semanal *</label><input id="md-car" type="number" min="1" max="40" class="inp"></div>
-      <div><label class="lbl">Participación Estudiantil (PPE) / optativa general de Bachillerato</label><select id="md-opt" class="inp"><option value="NO">Ninguna</option><option>Asignatura Optativa</option><option>Participación Estudiantil (PPE)</option></select></div>
+      <div><label class="lbl">Carga horaria (según distributivo)</label><input id="md-car" type="number" readonly min="0" max="40" class="inp"></div>
+      <div class="hidden"><label class="lbl">Participación Estudiantil (PPE) / optativa general de Bachillerato</label><select id="md-opt" class="inp"><option value="NO">Ninguna</option><option>Asignatura Optativa</option><option>Participación Estudiantil (PPE)</option></select></div>
       <div><label class="lbl">Estado</label><select id="md-est" class="inp"><option>ACTIVO</option><option>INACTIVO</option></select>
         <p class="text-[10px] text-slate-500">Al pasar a INACTIVO se registra la fecha de salida y se respalda todo lo que ingresó.</p></div>
       <div><label class="lbl">Fecha de ingreso a la institución</label><input id="md-fing" type="date" class="inp"></div>
       <div><label class="lbl">Fecha de salida</label><input id="md-fsal" type="date" class="inp" disabled></div>
     </div>
+    <!-- v4.14: años, paralelos, asignaturas, optativas y tutoría se asignan en la pestaña Distributivo -->
+    <div class="hidden" id="md-academico">
     <div><label class="lbl">Años de básica / cursos *</label><div id="md-gra" class="grid grid-cols-2 sm:grid-cols-4 gap-1 bg-slate-50 border rounded-xl p-2"></div></div>
     <div><label class="lbl">Paralelos *</label><div id="md-par" class="flex gap-3 bg-slate-50 border rounded-xl p-2"></div></div>
     <div><label class="lbl">Asignaturas * <span class="font-normal text-slate-500">("Docente de Aula" habilita Matemática, Lengua y Literatura, Estudios Sociales, Ciencias Naturales y ECA en 2° a 7°; en Inicial/Preparatoria, el registro de destrezas)</span></label>
@@ -644,12 +662,15 @@
       <input id="md-optn" class="inp" placeholder="Ej.: Redacción creativa, Laboratorio de ciencias, Robótica">
       <div id="md-optcat" class="flex flex-wrap gap-1 mt-1"></div>
       <p class="text-[10px] text-slate-500 mt-0.5">Se guardan como "Optativa: Redacción creativa" para que siempre se identifiquen como optativas.</p></div>
-    <div><label class="lbl">Distributivo detallado <span class="font-normal text-slate-500">(una línea por clase: Año – Paralelo – Asignatura; si da clases en las dos jornadas: Jornada – Año – Paralelo – Asignatura)</span></label>
+    </div>
+    <div><label class="lbl">Clases asignadas <span class="font-normal text-slate-500">(se administran en la pestaña Distributivo)</span> <span class="hidden">(una línea por clase: Año – Paralelo – Asignatura; si da clases en las dos jornadas: Jornada – Año – Paralelo – Asignatura)</span></label>
+      <div id="md-tutinfo" class="text-[11px] text-purple-900 font-bold"></div>
       <textarea id="md-dist" class="inp bg-slate-100" rows="3" readonly placeholder="Se completa solo desde la pestaña Malla y distributivo"></textarea>
       <div class="flex flex-wrap gap-2 mt-1"><button type="button" onclick="irDistDocente($('md-id').value)" class="btn btn-sec">📋 Editar en Malla y distributivo</button>
+        <button type="button" id="md-clave" onclick="resetClaveDoc($('md-id').value)" class="btn btn-sec">🔑 Nueva contraseña</button>
         <button type="button" id="md-resp" onclick="respaldarDocente($('md-id').value)" class="btn btn-sec">💾 Respaldar información del docente</button></div>
       <p class="text-[10px] text-slate-500 mt-0.5">El distributivo se arma eligiendo docente, curso, paralelo y asignatura en <b>Malla y distributivo</b>; también se puede cargar con la plantilla Excel.</p></div>
-    <div class="grid grid-cols-1 sm:grid-cols-4 gap-2">
+    <div class="hidden grid grid-cols-1 sm:grid-cols-4 gap-2">
       <div><label class="lbl">¿Es docente tutor?</label><select id="md-tut" class="inp"><option value="NO">NO</option><option value="SI">SÍ</option></select></div>
       <div><label class="lbl">Curso de tutoría</label><select id="md-tgra" class="inp"></select></div>
       <div><label class="lbl">Paralelo de tutoría</label><select id="md-tpar" class="inp"></select></div>
@@ -743,9 +764,9 @@ function ojitos() {
     inp.parentNode.insertBefore(w, inp); w.appendChild(inp);
     inp.style.paddingRight = '38px';
     const b = document.createElement('button');
-    b.type = 'button'; b.tabIndex = -1; b.title = 'Mostrar contraseña'; b.setAttribute('aria-label', 'Mostrar contraseña'); b.textContent = '👁️';
+    b.type = 'button'; b.tabIndex = -1; b.title = 'Mostrar contraseña'; b.setAttribute('aria-label', 'Mostrar contraseña'); b.textContent = '🙈';
     b.style.cssText = 'position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:0;cursor:pointer;font-size:16px;line-height:1;opacity:.7';
-    b.onclick = () => { const ver = inp.type === 'password'; inp.type = ver ? 'text' : 'password'; b.textContent = ver ? '🙈' : '👁️'; b.title = ver ? 'Ocultar contraseña' : 'Mostrar contraseña'; inp.focus(); };
+    b.onclick = () => { const ver = inp.type === 'password'; inp.type = ver ? 'text' : 'password'; b.textContent = ver ? '🐵' : '🙈'; b.title = ver ? 'Ocultar contraseña' : 'Mostrar contraseña'; inp.focus(); };
     w.appendChild(b);
   });
 }
@@ -897,9 +918,9 @@ function iniciarApp() {
   $('b-rol').textContent = S.ses.cargo + (S.ses.rol === 'DOCENTE' ? ' · ' + S.ses.jornada : '');
   const R = S.ses.rol;
   const tabs = R === 'DOCENTE' ? [['planilla', '📝 Mis calificaciones']]
-    : R === 'RECTORA' ? [['estudiantes', '🎒 Estudiantes'], ['docentes', '👨‍🏫 Docentes'], ['optativas', '🎓 Optativas BGU'], ['periodos', '📅 Fechas, cortes y bloqueos'], ['informes', '📊 Informes'], ['seguimiento', '⚠️ Seguimiento y cumplimiento'], ['inasistencias', '🚨 Inasistencias'], ['efb', '🎓 Evaluación final de Bachillerato'], ['malla', '📋 Malla y distributivo'], ['institucion', '🏫 Institución'], ['cierre', '🎓 Cierre del año']]
+    : R === 'RECTORA' ? [['estudiantes', '🎒 Estudiantes'], ['docentes', '👨‍🏫 Docentes'], ['optativas', '🎓 Optativas BGU'], ['periodos', '📅 Fechas, cortes y bloqueos'], ['informes', '📊 Informes'], ['seguimiento', '⚠️ Seguimiento y cumplimiento'], ['inasistencias', '🚨 Inasistencias'], ['efb', '🎓 Evaluación final de Bachillerato'], ['malla', '📋 Distributivo'], ['institucion', '🏫 Institución'], ['cierre', '🎓 Cierre del año']]
     : esInspeccion() ? [['inasistencias', '🚨 Inasistencias y justificaciones']]
-    : [['estudiantes', '🎒 Estudiantes'], ['optativas', '🎓 Optativas BGU'], ['informes', '📊 Informes'], ['seguimiento', '⚠️ Seguimiento y cumplimiento'], ['efb', '🎓 Evaluación final de Bachillerato'], ['malla', '📋 Malla y distributivo']];
+    : [['estudiantes', '🎒 Estudiantes'], ['optativas', '🎓 Optativas BGU'], ['informes', '📊 Informes'], ['seguimiento', '⚠️ Seguimiento y cumplimiento'], ['efb', '🎓 Evaluación final de Bachillerato'], ['malla', '📋 Distributivo']];
   $('nav').innerHTML = tabs.map(t => `<button data-tab="${t[0]}" onclick="irTab('${t[0]}')" class="tabbtn px-4 py-2 rounded-xl font-semibold text-slate-600 hover:bg-slate-100 whitespace-nowrap">${t[1]}</button>`).join('');
   document.querySelectorAll('.solo-rectora').forEach(e => e.classList.toggle('hidden', R !== 'RECTORA'));
   if (R !== 'DOCENTE') { prepararFiltrosDirectivos(); prepararInasistencias(); }
@@ -1145,7 +1166,7 @@ async function cargarDocentes() {
   await run(async () => {
     S.docs = await apiT('apiListarDocentes');
     const act = S.docs.filter(d => d.estado !== 'INACTIVO').length;
-    $('doc-count').textContent = `Docentes activos: ${act} / 60`;
+    $('doc-count').textContent = `Docentes activos: ${act} / 80`;
     $('doc-body').innerHTML = S.docs.map(d => `<tr class="${d.estado === 'INACTIVO' ? 'opacity-50' : ''}">
       <td class="font-mono">${esc(d.id)}</td><td class="font-bold">${esc(d.nombre)}</td><td class="font-mono text-sky-800">${esc(d.usuario)}</td>
       <td>${esc(d.jornada)}</td><td>${esc(d.carga)} h</td><td>${esc(d.grados.join(', '))}<br><span class="text-slate-500">Paralelos: ${esc(d.paralelos.join(', '))}</span></td>
@@ -1165,7 +1186,8 @@ function abrirDocente(id) {
   $('md-opt').value = d.optativas || 'NO'; $('md-est').value = d.estado || 'ACTIVO';
   $('md-dist').value = String(d.distributivo || '').split(/;\s*/).filter(Boolean).join('\n');
   $('md-fing').value = d.fechaIngreso || ''; $('md-fsal').value = d.fechaSalida || '';
-  $('md-resp').classList.toggle('hidden', !id);
+  $('md-resp').classList.toggle('hidden', !id); $('md-clave').classList.toggle('hidden', !id);
+  $('md-tutinfo').textContent = d.esTutor ? `Tutor/a de ${d.tutorGrado} ${d.tutorParalelo}${d.tutorJornada ? ' (' + d.tutorJornada + ')' : ''}` : '';
   $('md-gra').innerHTML = gradosList().map(g => `<label class="flex gap-1 items-center"><input type="checkbox" value="${esc(g)}" ${d.grados.includes(g) ? 'checked' : ''}>${esc(g)}</label>`).join('');
   $('md-par').innerHTML = S.cat.paralelos.map(p => `<label class="flex gap-1 items-center"><input type="checkbox" value="${p}" ${d.paralelos.includes(p) ? 'checked' : ''}>${p}</label>`).join('');
   $('md-asig').innerHTML = S.cat.materias.map(m => `<label class="flex gap-1 items-center"><input type="checkbox" value="${esc(m)}" ${d.asignaturas.includes(m) ? 'checked' : ''}>${esc(m)}</label>`).join('');
@@ -1183,6 +1205,17 @@ function abrirDocente(id) {
 }
 const marcados = id => [...$(id).querySelectorAll('input:checked')].map(i => i.value);
 async function guardarDocente() {
+  // v4.14: la ficha guarda solo datos generales; lo académico se asigna en Distributivo
+  const g = { id: $('md-id').value, titulo: $('md-tit2').value, nombres: $('md-nom').value, apellidos: $('md-ape').value, correo: $('md-cor').value, cedula: $('md-ced').value,
+    jornada: $('md-jor').value, estado: $('md-est').value, fechaIngreso: $('md-fing').value, soloGenerales: true };
+  await run(async () => {
+    const r = await apiT('apiGuardarDocente', g);
+    cerrarModal('m-doc'); toast(r.mensaje + (g.id ? '' : ' Ahora asígnele sus clases en la pestaña Distributivo.'), 'ok');
+    if (r.credenciales) mostrarCred(r.credenciales);
+    await refrescarCatalogo(); cargarDocentes();
+  });
+}
+async function guardarDocenteCompleto() {
   const asig = marcados('md-asig').concat($('md-otras').value.split(',').map(s => s.trim()).filter(Boolean));
   const optn = $('md-optn').value.split(',').map(s => s.trim()).filter(Boolean);
   const o = {
@@ -1435,12 +1468,94 @@ function iniMalla() {
     $('dc-jor').innerHTML = opts(jornadasDir(false)); $('dc-par').innerHTML = opts(S.cat.paralelos);
     $('dd-doc').innerHTML = opts((S.cat.docentes || []).filter(d => d.estado !== 'INACTIVO').sort((a, b) => a.nombre.localeCompare(b.nombre, 'es')).map(d => ({ v: d.id, t: d.nombre })));
   }
-  verMalla(S.mallaVista || 'malla');
+  if (!$('pt-jor').options.length) $('pt-jor').innerHTML = opts(jornadasDir(false));
+  apiT('apiCargarOferta').then(r => { S.oferta = r.oferta; verMalla(S.mallaVista || 'docente'); }).catch(e => toast(e.message, 'err'));
+}
+// ---- v4.14: asignación desde el docente (1 docente · 2 curso · 3 asignaturas) ----
+function asgDocente() {
+  const d = (S.cat.docentes || []).find(x => x.id === $('dd-doc').value);
+  if (!d) { $('asg-area').innerHTML = ''; $('dd-area').innerHTML = ''; return; }
+  const js = (d.jornada === 'Ambas' ? ['Matutina', 'Vespertina'] : [d.jornada]).filter(j => !S.cat.jornadaFija || j === S.cat.jornadaFija);
+  $('asg-jor').innerHTML = opts(js);
+  asgCursos(); cargarDistDocente();
+}
+function ofertaDe(j) { return (S.oferta || []).filter(o => o.jornada === j); }
+function asgCursos() {
+  const of = ofertaDe($('asg-jor').value);
+  const gs = of.length ? gradosList().filter(g => of.some(o => o.grado === g)) : gradosList();
+  $('asg-gra').innerHTML = opts(gs, $('asg-gra').value);
+  asgParalelos();
+}
+function asgParalelos() {
+  const of = ofertaDe($('asg-jor').value).filter(o => o.grado === $('asg-gra').value);
+  $('asg-par').innerHTML = opts(of.length ? S.cat.paralelos.filter(p => of.some(o => o.paralelo === p)) : S.cat.paralelos, $('asg-par').value);
+  asgCargar();
+}
+async function asgCargar() {
+  const id = $('dd-doc').value, f = { jornada: $('asg-jor').value, grado: $('asg-gra').value, paralelo: $('asg-par').value };
+  if (!id || !f.jornada || !f.grado || !f.paralelo) { $('asg-area').innerHTML = ''; return; }
+  await run(async () => {
+    const r = await apiT('apiCargarAsignacion', id, f); S.asg = r;
+    const sinOferta = !(S.oferta || []).length ? '<p class="text-[11px] text-amber-800">ℹ️ Aún no registra los "Cursos por jornada": por ahora se muestran todos los cursos.</p>' : '';
+    const filas = r.filas.map((x, i) => `<tr class="${x.mio ? 'bg-emerald-50' : (x.otro ? 'bg-amber-50' : '')}">
+      <td><input type="checkbox" id="asg-c-${i}" ${x.mio ? 'checked' : ''}></td><td style="text-align:left">${esc(x.area)}</td><td style="text-align:left" class="font-semibold">${esc(x.asignatura)}</td>
+      <td>${x.grupo ? 'bloque ' + esc(x.horasGrupo) + ' h' : esc(x.horasRef)}</td>
+      <td><input id="asg-h-${i}" class="inp w-20 text-center" value="${esc(x.horas)}" placeholder="${x.grupo ? 'bloque' : esc(x.horasRef)}"></td>
+      <td class="text-[11px]">${x.mio ? '<b class="text-emerald-700">✔ Ya es suya</b>' : (x.otro ? '<b class="text-amber-800">⚠ Asignada a ' + esc(x.otro) + '</b>' : '<span class="text-slate-500">Libre</span>')}</td></tr>`).join('');
+    $('asg-area').innerHTML = `${sinOferta}<div class="font-black text-xs">3. Asignaturas que imparte ${esc(r.docente.nombre)} en ${esc(f.grado)} ${esc(f.paralelo)} (${esc(f.jornada)})</div>
+      <div class="overflow-x-auto border rounded-2xl"><table class="w-full planilla"><thead class="bg-sky-50"><tr><th>✔</th><th class="text-left">Área</th><th class="text-left">Asignatura</th><th>Horas (malla)</th><th>Horas</th><th>Estado</th></tr></thead><tbody>${filas}</tbody></table></div>
+      <label class="flex items-center gap-2 text-xs font-bold mt-2 bg-purple-50 border border-purple-200 rounded-xl p-2"><input type="checkbox" id="asg-tut" ${r.soyTutor ? 'checked' : ''}>
+        Es tutor/a de este curso <span class="font-normal text-slate-600">(${r.tutor ? 'tutor/a actual: ' + esc(r.tutor.nombre) : 'sin tutor/a'}${r.miTutoria && !r.soyTutor ? ' · este docente ya es tutor/a de ' + esc(r.miTutoria) : ''}) · incluye la hora de Acompañamiento Integral</span></label>
+      <p class="text-[10px] text-slate-500">Marque lo que imparte. Si desmarca una asignatura que ya era suya, se le quita. Horas vacías = horas de la malla.</p>
+      <button onclick="asgGuardar(false)" class="btn btn-ok mt-1">💾 Guardar asignación</button>`;
+  });
+}
+async function asgGuardar(reemplazar) {
+  const r = S.asg, sel = r.filas.map((x, i) => ({ asignatura: x.asignatura, marcado: $('asg-c-' + i).checked, horas: $('asg-h-' + i).value }));
+  let fin = false;
+  await run(async () => {
+    const x = await apiT('apiAsignarClases', r.docente.id, r.filtro, sel, $('asg-tut').checked, reemplazar);
+    if (!x.success && x.conflictos) {
+      if (confirm('Atención, ya hay asignaciones:\n\n• ' + x.conflictos.join('\n• ') + '\n\n¿Desea reemplazarlas y asignarlas a ' + r.docente.nombre + '?')) { fin = 'reemplazar'; return; }
+      toast('No se guardó: revise las asignaciones repetidas.', 'err'); return;
+    }
+    toast(x.mensaje + (x.avisos && x.avisos.length ? ' ⚠️ ' + x.avisos.join(' ') : ''), x.avisos && x.avisos.length ? 'err' : 'ok'); fin = true;
+    await refrescarCatalogo();
+  });
+  if (fin === 'reemplazar') return asgGuardar(true);
+  if (fin) { asgCargar(); cargarDistDocente(); }
+}
+// ---- v4.14: cursos y paralelos por jornada ----
+async function cargarOferta() {
+  await run(async () => {
+    const r = await apiT('apiCargarOferta'); S.oferta = r.oferta;
+    $('of-area').innerHTML = jornadasDir(false).map(j => `<div class="border rounded-2xl p-3"><div class="font-black text-xs mb-1">Jornada ${esc(j)}</div>
+      <table class="w-full planilla"><thead class="bg-sky-50"><tr><th class="text-left">Año de básica / curso</th>${S.cat.paralelos.map(p => `<th>${p}</th>`).join('')}</tr></thead><tbody>
+      ${gradosList().map((g, gi) => `<tr><td style="text-align:left">${esc(g)}</td>${S.cat.paralelos.map(p => `<td><input type="checkbox" class="of-${j}" data-g="${esc(g)}" data-p="${p}" ${r.oferta.some(o => o.jornada === j && o.grado === g && o.paralelo === p) ? 'checked' : ''}></td>`).join('')}</tr>`).join('')}
+      </tbody></table><button onclick="guardarOferta('${j}')" class="btn btn-ok mt-2">💾 Guardar jornada ${esc(j)}</button></div>`).join('');
+  });
+}
+async function guardarOferta(j) {
+  const l = [...document.querySelectorAll('.of-' + j)].filter(x => x.checked).map(x => ({ grado: x.dataset.g, paralelo: x.dataset.p }));
+  await run(async () => { const r = await apiT('apiGuardarOferta', j, l); toast(r.mensaje, 'ok'); const o = await apiT('apiCargarOferta'); S.oferta = o.oferta; });
+}
+// ---- v4.14: planta docente ----
+async function genPlanta() { await run(async () => mostrarReporte(await apiT('apiReporte', 'planta', { jornada: $('pt-jor').value }))); }
+async function descargarPlanta() {
+  if (typeof XLSX === 'undefined') return toast('No se pudo cargar el generador de Excel.', 'err');
+  await run(async () => {
+    const r = await apiT('apiReporte', 'planta', { jornada: $('pt-jor').value });
+    const filas = [['N°', 'Docente', 'Cédula', 'Correo', 'Jornada', 'Fecha de ingreso', 'Tutoría', 'Asignaturas (curso · asignatura · horas)', 'Otras actividades', 'Carga horaria total']]
+      .concat(r.filas.map((x, i) => [i + 1, x.docente, x.cedula, x.correo, x.jornada, x.ingreso, x.tutor, x.clases.join('\n'), x.actividades.join('\n'), x.total]));
+    const ws = XLSX.utils.aoa_to_sheet(filas); ws['!cols'] = [5, 30, 12, 26, 11, 12, 14, 60, 40, 10].map(w => ({ wch: w }));
+    const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Planta docente');
+    XLSX.writeFile(wb, 'Planta_docente_' + $('pt-jor').value + '.xlsx');
+  });
 }
 function verMalla(v) {
   S.mallaVista = v;
-  ['malla', 'curso', 'docente'].forEach(x => { $('mlv-' + x).classList.toggle('hidden', x !== v); $('mlb-' + x).className = 'btn ' + (x === v ? 'btn-primary' : 'btn-sec'); });
-  if (v === 'malla') cargarMalla(); else if (v === 'curso') cargarDistCurso(); else cargarDistDocente();
+  ['docente', 'curso', 'planta', 'oferta', 'malla'].forEach(x => { $('mlv-' + x).classList.toggle('hidden', x !== v); $('mlb-' + x).className = 'btn ' + (x === v ? 'btn-primary' : 'btn-sec'); });
+  if (v === 'malla') cargarMalla(); else if (v === 'curso') cargarDistCurso(); else if (v === 'oferta') cargarOferta(); else if (v === 'docente') asgDocente();
 }
 function irDistDocente(id) {
   if (!id) return toast('Primero guarde al docente.', 'err');
@@ -1503,15 +1618,15 @@ async function cargarDistCurso() {
   const f = { jornada: $('dc-jor').value, grado: $('dc-gra').value, paralelo: $('dc-par').value };
   await run(async () => {
     const r = await apiT('apiCargarDistCurso', f); S.dc = r;
+    const nomDoc = id => ((r.docentes.find(d => d.id === id) || {}).nombre || (id ? id : '—'));
     const op = sel => '<option value="">— Sin asignar —</option>' + r.docentes.map(d => `<option value="${esc(d.id)}" ${d.id === sel ? 'selected' : ''}>${esc(d.nombre)} · ${d.asignada}/${d.carga || '?'} h</option>`).join('');
     const filas = r.filas.map((x, i) => `<tr class="${x.idDocente ? '' : 'bg-amber-50'}"><td style="text-align:left">${esc(x.area)}</td><td style="text-align:left" class="font-semibold">${esc(x.asignatura)}${x.asignatura.includes('Acompañamiento') ? '<div class="text-[10px] text-slate-500">por la tutoría</div>' : ''}</td>
-      <td>${x.grupo ? `bloque ${esc(x.horasGrupo)} h` : esc(x.horasRef)}</td><td><select id="dc-d-${i}" class="inp text-[11px]">${op(x.idDocente)}</select></td>
-      <td><input id="dc-h-${i}" class="inp w-20 text-center" value="${esc(x.horas)}" placeholder="${x.grupo ? 'bloque' : esc(x.horasRef)}"></td></tr>`).join('');
+      <td>${x.grupo ? `bloque ${esc(x.horasGrupo)} h` : esc(x.horasRef)}</td><td style="text-align:left">${x.guardado || x.asignatura.includes('Acompañamiento') ? esc(nomDoc(x.idDocente)) : '<b class="text-amber-800">Falta asignar</b>'}</td>
+      <td>${esc(x.horas)}</td></tr>`).join('');
     $('dc-area').innerHTML = `${r.tutor ? `<p class="text-[11px]">Docente tutor/a: <b>${esc(r.tutor.nombre)}</b></p>` : '<p class="text-[11px] text-amber-800">Este curso aún no tiene tutor/a registrado (se asigna en la ficha del docente).</p>'}
       ${r.avisos.length ? `<div class="text-[11px] bg-amber-50 border border-amber-200 rounded-xl p-2 text-amber-900">${r.avisos.map(esc).join(' · ')}</div>` : '<div class="text-[11px] bg-emerald-50 border border-emerald-200 rounded-xl p-2 text-emerald-800 font-bold">✅ Todas las asignaturas tienen docente.</div>'}
-      <div class="overflow-x-auto border rounded-2xl mt-2"><table class="w-full planilla"><thead class="bg-sky-50"><tr><th class="text-left">Área</th><th class="text-left">Asignatura</th><th>Horas (malla)</th><th>Docente</th><th>Horas asignadas</th></tr></thead><tbody>${filas}</tbody></table></div>
-      <p class="text-[10px] text-slate-500">Si deja "Horas asignadas" vacío se toman las horas de la malla (en Elemental y Media el bloque de 20 h cuenta una sola vez para el docente de aula). Entre paréntesis: horas asignadas / carga horaria del docente.</p>
-      <button onclick="guardarDistCurso()" class="btn btn-ok mt-1">💾 Guardar distributivo del curso</button>`;
+      <div class="overflow-x-auto border rounded-2xl mt-2"><table class="w-full planilla"><thead class="bg-sky-50"><tr><th class="text-left">Área</th><th class="text-left">Asignatura</th><th>Horas (malla)</th><th class="text-left">Docente</th><th>Horas asignadas</th></tr></thead><tbody>${filas}</tbody></table></div>
+      <p class="text-[10px] text-slate-500">Vista de revisión. Para asignar o cambiar, use "Asignar a un docente".</p>`;
   });
 }
 async function guardarDistCurso() {
@@ -2615,6 +2730,15 @@ function mostrarReporte(r) {
       resumenAnual(r) +
       (r.obsGeneral ? `<table><tr><th style="width:22%">Observación general</th><td>${esc(r.obsGeneral)}</td></tr></table>` : '') +
       firmas([[r.docente, 'Docente de asignatura', 'REALIZADO'], vice(r)]) + norma(r);
+  } else if (r.tipo === 'planta') {
+    orient = 'landscape';
+    const filas = r.filas.map((x, n) => `<tr class="${x.total > 40 ? 'alerta' : ''}"><td class="c">${n + 1}</td><td>${esc(x.docente)}</td><td>${esc(x.cedula)}</td><td>${esc(x.tutor)}</td>
+      <td style="font-size:.9em">${x.clases.map(esc).join('<br>') || '—'}</td><td style="font-size:.9em">${x.actividades.map(esc).join('<br>') || '—'}</td><td class="c b">${x.total}</td></tr>`);
+    const tot = r.filas.reduce((a, x) => a + Number(x.total || 0), 0);
+    h = encabezado(r, 'Planta docente – Jornada ' + esc(F.jornada), 'Asignaturas, actividades y carga horaria semanal (periodos pedagógicos)') +
+      ficha([['Jornada', F.jornada], ['Docentes', r.filas.length], ['Total de horas asignadas', tot]]) +
+      tabla(['N°', 'Docente', 'Cédula', 'Tutoría', 'Asignaturas (curso · asignatura · horas)', 'Otras actividades', 'Carga horaria'], filas) +
+      firmas([[r.vicerrector || '', 'Vicerrector/a', 'ELABORADO'], [r.inst.rectora, 'Rectora', 'APROBADO']]) + norma(r);
   } else if (r.tipo === 'distributivo') {
     orient = 'landscape';
     const filas = r.filas.map((x, n) => `<tr class="${x.total > 40 ? 'alerta' : ''}"><td class="c">${n + 1}</td><td>${esc(x.docente)}</td><td>${esc(x.cedula)}</td><td>${esc(x.jornada)}</td><td>${esc(x.tutor)}</td>
